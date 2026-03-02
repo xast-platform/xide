@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
 
+import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
 
@@ -16,14 +17,15 @@ public class EditorView extends JPanel {
     private final RSyntaxTextArea textArea;
     private final RTextScrollPane scrollPane;
 
-    public EditorView(XideStyle style) {
+    public EditorView() {
         super(new BorderLayout());
 
+        XideStyle style = XideStyle.getCurrent();
         Font font = style.codeFont().deriveFont(16f);
 
         // Create the text area
         textArea = new RSyntaxTextArea();
-        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_NONE);
+        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         textArea.setCodeFoldingEnabled(true);
         textArea.setAntiAliasingEnabled(true);
 
@@ -40,8 +42,10 @@ public class EditorView extends JPanel {
         // Scroll pane
         scrollPane = new RTextScrollPane(textArea);
         scrollPane.setLineNumbersEnabled(true);
-        scrollPane.getGutter().setLineNumberFont(font);
-        // scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        var gutter = scrollPane.getGutter();
+        gutter.setLineNumberFont(font);
+        gutter.setSpacingBetweenLineNumbersAndFoldIndicator(8);
 
         this.add(scrollPane, BorderLayout.CENTER);
     }

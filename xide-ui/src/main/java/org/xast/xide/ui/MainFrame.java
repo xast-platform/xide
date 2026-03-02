@@ -11,9 +11,10 @@ import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.ui.component.code_panel.CodePanel;
 import org.xast.xide.ui.component.side.SideBar;
+import org.xast.xide.ui.component.side.ToolBar;
 import org.xast.xide.ui.component.side.ToolButton;
-import org.xast.xide.ui.dialog.SettingsDialog;
 import org.xast.xide.ui.state.tool.DummyTool;
+import org.xast.xide.ui.state.tool.FolderTreeTool;
 import org.xast.xide.ui.state.tool.SettingsTool;
 import org.xast.xide.ui.utils.LucideIcon;
 import org.xast.xide.ui.utils.XideStyle;
@@ -31,13 +32,15 @@ public class MainFrame {
     @Getter
     private final SideBar sideBar;
     @Getter
+    private final ToolBar toolBar;
+    @Getter
     private final JTabbedPane bottomPanel;
     @Getter
     private final JMenuBar menuBar;
 
     // Services
     private final PluginRegistry pluginRegistry;
-    private final Workspace workspace;
+    private Workspace workspace;
 
     static {
         JFrame.setDefaultLookAndFeelDecorated(true);
@@ -48,21 +51,21 @@ public class MainFrame {
 
     public MainFrame(
         Workspace workspace,
-        PluginRegistry pluginRegistry,
-        XideStyle style
+        PluginRegistry pluginRegistry
     ) {
         this.workspace = workspace;
         this.pluginRegistry = pluginRegistry;
 
-        setupStyle(style);
+        setupStyle();
 
         frame = new JFrame();
-        codePanel = new CodePanel(style);
+        codePanel = new CodePanel();
         sideBar = new SideBar();
         bottomPanel = new JTabbedPane();
         menuBar = new JMenuBar();
+        toolBar = new ToolBar();
 
-        setupLayout(style);
+        setupLayout();
     }
 
     public void setTitle(String title) {
@@ -81,7 +84,8 @@ public class MainFrame {
         return frame;
     }
 
-    private void setupStyle(XideStyle style) {
+    private void setupStyle() {
+        XideStyle style = XideStyle.getCurrent();
         // Title bar
         UIManager.put("TitlePane.iconSize", new Dimension(
             XideStyle.ICON_WIDTH, 
@@ -91,7 +95,7 @@ public class MainFrame {
         UIManager.put("TitlePane.font", style.uiFont());
 
         // Tabbed panes
-        UIManager.put("TabbedPane.tabHeight", 32);
+        UIManager.put("TabbedPane.tabHeight", 36);
         UIManager.put("TabbedPane.tabInsets", new Insets(6, 14, 6, 14));
         UIManager.put("TabbedPane.showTabSeparators", true);
 
@@ -100,32 +104,86 @@ public class MainFrame {
         UIManager.put("Component.focusColor", new Color(172, 108, 64, 172)); // softer orange
     }
 
-    private void setupLayout(XideStyle style) {
-        // ----- Main frame properties
+    private void setupLayout() {
+        XideStyle style = XideStyle.getCurrent();
+        
+        // Main frame properties
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setSize(1280, 960);
+        frame.setSize(style.windowSize().width, style.windowSize().height);
         frame.setLocationRelativeTo(null);
         frame.setIconImage(style.favicon().getImage());
         frame.setLayout(new BorderLayout());
 
-        // ----- Menu bar
+        // Menu bar
         menuBar.setFont(style.uiFont());
-        menuBar.add(new JMenu("File"));
+
+        var file = new JMenu("File");
+        var openFolder = new JMenuItem("Open folder");
+        openFolder.addActionListener(a -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            int result = fileChooser.showOpenDialog(frame);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                workspace = new Workspace.Directory(fileChooser.getSelectedFile());
+                var tool = (FolderTreeTool) toolBar.getTool(FolderTreeTool.class);
+                tool.setWorkspace(workspace);
+                tool.show();
+            }
+        });
+        file.add(openFolder);
+
+        menuBar.add(file);
         frame.setJMenuBar(menuBar);
 
-        // ----- Central panel 
+        // Central panel 
         // ...
 
-        // ----- Side panel
-        // North toolbar
-        sideBar.addToolButtonNorth(new ToolButton(LucideIcon.FOLDER_TREE, "Project tree", new DummyTool()));
-        sideBar.addToolButtonNorth(new ToolButton(LucideIcon.FILE_SEARCH_CORNER, "Search", new DummyTool()));
+        // Side panel
+        toolBar.addToolButtonNorth(new ToolButton(
+            LucideIcon.FOLDER_TREE, 
+            "Project tree", 
+            new FolderTreeTool(sideBar, workspace)
+        ));
+        toolBar.addToolButtonNorth(new ToolButton(
+            LucideIcon.FILE_SEARCH_CORNER, 
+            "Search", 
+            new DummyTool()
+        ));
+        toolBar.addToolButtonSouth(new ToolButton(
+            LucideIcon.COG, 
+            "Settings", 
+            new SettingsTool(this)
+        ));
+        toolBar.setDefaultTool(FolderTreeTool.class);
 
-        // South toolbar
-        sideBar.addToolButtonSouth(new ToolButton(LucideIcon.COG, "Settings", new SettingsTool(this)));
+        // Split panes
+        JSplitPane verticalSplit = new JSplitPane(
+            JSplitPane.VERTICAL_SPLIT,
+            codePanel,
+            bottomPanel
+        );
+        verticalSplit.setResizeWeight(0.2);
+        verticalSplit.setContinuousLayout(true);
+        verticalSplit.setBorder(null);
 
+        JSplitPane horizontalSplit = new JSplitPane(
+            JSplitPane.HORIZONTAL_SPLIT,
+            sideBar,
+            verticalSplit
+        );
+        horizontalSplit.setResizeWeight(0.75);
+        horizontalSplit.setContinuousLayout(true);
+        horizontalSplit.setBorder(null);
+        horizontalSplit.setDividerLocation(XideStyle.SIDEBAR_WIDTH);
 
-        frame.add(codePanel, BorderLayout.CENTER);
-        frame.add(sideBar, BorderLayout.WEST);
+        sideBar.setSplitPane(horizontalSplit);
+
+        frame.add(horizontalSplit, BorderLayout.CENTER);
+        frame.add(toolBar, BorderLayout.WEST);
+
+        SwingUtilities.invokeLater(() -> {
+            int totalHeight = verticalSplit.getHeight();
+            verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
+        });
     }
 }

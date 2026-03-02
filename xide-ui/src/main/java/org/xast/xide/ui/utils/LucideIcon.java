@@ -8,7 +8,16 @@ import com.formdev.flatlaf.extras.FlatSVGIcon.ColorFilter;
 public enum LucideIcon {
     FOLDER_TREE("folder-tree"),
     FILE_SEARCH_CORNER("file-search-corner"),
-    COG("cog");
+    COG("cog"),
+    BOLT("bolt"),
+    COMPONENT("component"),
+    FILE("file"),
+    FOLDER("folder"),
+    PACKAGE("package"),
+    PARENTHESES("parentheses"),
+    SCROLL_TEXT("scroll-text"),
+    VARIABLE("variable"),;
+    // Other icons
 
     private String name;
 

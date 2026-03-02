@@ -10,13 +10,14 @@ import org.xast.xide.ui.utils.XideStyle;
 public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
+            XideStyle.setCurrent(XideStyle.defaultStyle());
+            
             PluginManager pm = new PluginManager();
             pm.loadPlugins();
             
             MainFrame frame = new MainFrame(
                 Workspace.init(args),
-                pm.getRegistry(),
-                XideStyle.defaultStyle()
+                pm.getRegistry()
             );
             
             frame.setTitle("Xide");
