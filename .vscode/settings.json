@@ -6,5 +6,8 @@
             "path": "/usr/lib/jvm/java-21-openjdk-amd64",
             "default": true
         }
+    ],
+    "Lua.diagnostics.disable": [
+        "lowercase-global"
     ]
 }

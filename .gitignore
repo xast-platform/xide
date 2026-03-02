@@ -17,4 +17,6 @@ buildNumber.properties
 .classpath
 .vscode/
 
+
+dist/
 build/

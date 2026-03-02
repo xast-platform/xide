@@ -1,0 +1,3 @@
+[submodule "xbuild"]
+	path = xbuild
+	url = https://github.com/xast-platform/xbuild
