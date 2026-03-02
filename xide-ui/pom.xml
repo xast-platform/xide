@@ -19,18 +19,21 @@
       <version>3.8.1</version>
       <scope>test</scope>
     </dependency>
+
     <!-- Xide API -->
     <dependency>
       <groupId>org.xast.xide</groupId>
       <artifactId>xide-api</artifactId>
       <version>${project.version}</version>
     </dependency>
+
     <!-- Xide Core -->
     <dependency>
       <groupId>org.xast.xide</groupId>
       <artifactId>xide-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+
     <!-- Lombok -->
     <dependency>
 		  <groupId>org.projectlombok</groupId>
@@ -58,6 +61,19 @@
         <groupId>com.formdev</groupId>
         <artifactId>flatlaf-intellij-themes</artifactId>
         <version>3.7</version>
+    </dependency>
+
+    <!-- RSyntaxTextArea -->
+    <dependency>
+      <groupId>com.fifesoft</groupId>
+      <artifactId>rsyntaxtextarea</artifactId>
+      <version>3.6.2</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fifesoft</groupId>
+      <artifactId>autocomplete</artifactId>
+      <version>3.3.3</version>
     </dependency>
   </dependencies>
 </project>

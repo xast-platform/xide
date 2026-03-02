@@ -15,7 +15,6 @@
     <module>xide-core</module>
     <module>xide-ui</module>
     <module>xide-app</module>
-    <module>plugins/project-view</module>
   </modules>
 
   <properties>

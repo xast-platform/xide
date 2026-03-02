@@ -1,4 +1,4 @@
-package org.xast.xide.ui.components;
+package org.xast.xide.ui.component;
 
 import java.awt.Color;
 
