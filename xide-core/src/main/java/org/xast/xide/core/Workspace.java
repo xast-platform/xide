@@ -58,6 +58,7 @@ public sealed interface Workspace
             default -> new Combined(
                 Arrays.stream(args)
                     .map(path -> initSingle(path))
+                    .distinct()
                     .toArray(Workspace[]::new)
             );
         };

@@ -1,4 +1,4 @@
-package org.xast.xide.utils;
+package org.xast.xide.core.utils;
 
 public class Debug {
     public static void info(Object message) {

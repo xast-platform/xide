@@ -70,10 +70,33 @@
       <version>3.6.2</version>
       <scope>compile</scope>
     </dependency>
+
+    <!-- Autocomplete -->
     <dependency>
       <groupId>com.fifesoft</groupId>
       <artifactId>autocomplete</artifactId>
       <version>3.3.3</version>
+    </dependency>
+
+    <!-- PTY4j -->
+    <dependency>
+      <groupId>org.jetbrains.pty4j</groupId>
+      <artifactId>pty4j</artifactId>
+      <version>0.13.12</version>
+    </dependency>
+
+    <!-- JediTerm -->
+    <dependency>
+      <groupId>org.jetbrains.jediterm</groupId>
+      <artifactId>jediterm-ui</artifactId>
+      <version>3.61</version>
+    </dependency>
+
+    <!-- JediTerm Core -->
+    <dependency>
+      <groupId>org.jetbrains.jediterm</groupId>
+      <artifactId>jediterm-core</artifactId>
+      <version>3.61</version>
     </dependency>
   </dependencies>
   <build>

@@ -4,9 +4,9 @@ import javax.swing.SwingUtilities;
 
 import org.xast.xide.core.PluginManager;
 import org.xast.xide.core.Workspace;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.MainFrame;
 import org.xast.xide.ui.utils.XideStyle;
-import org.xast.xide.utils.Debug;
 
 public class Main {
     public static void main(String[] args) {

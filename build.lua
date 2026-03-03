@@ -43,7 +43,7 @@ local function package(config)
       launcher:write(
          "@echo off\n" ..
          "set DIR=%~dp0\n" ..
-         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Xms64m -Xmx256m -jar \"%DIR%\\app\\xide.jar\""
+         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Xms64m -Xmx256m -jar \"%DIR%\\app\\xide.jar\" %*"
       )
       launcher:close()
    else
@@ -51,7 +51,7 @@ local function package(config)
       launcher:write(
          "#!/usr/bin/env bash\n" ..
          "DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" ..
-         "\"$DIR/tools/jdk/linux/bin/java\" -Xms64m -Xmx256m -jar \"$DIR/app/xide.jar\""
+         "\"$DIR/tools/jdk/linux/bin/java\" -Xms64m -Xmx256m -jar \"$DIR/app/xide.jar\" \"$@\""
       )
       launcher:close()
       XBUILD.run("chmod +x dist/xide.sh")

@@ -9,6 +9,7 @@ import javax.swing.*;
 
 import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
+import org.xast.xide.ui.component.bottom.BottomPanel;
 import org.xast.xide.ui.component.code_panel.CodePanel;
 import org.xast.xide.ui.component.side.SideBar;
 import org.xast.xide.ui.component.side.ToolBar;
@@ -34,7 +35,7 @@ public class MainFrame {
     @Getter
     private final ToolBar toolBar;
     @Getter
-    private final JTabbedPane bottomPanel;
+    private final BottomPanel bottomPanel;
     @Getter
     private final JMenuBar menuBar;
 
@@ -61,7 +62,7 @@ public class MainFrame {
         frame = new JFrame();
         codePanel = new CodePanel();
         sideBar = new SideBar();
-        bottomPanel = new JTabbedPane();
+        bottomPanel = new BottomPanel();
         menuBar = new JMenuBar();
         toolBar = new ToolBar();
 

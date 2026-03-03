@@ -22,7 +22,7 @@ public class FileNode {
     @Override
     public String toString() {
         if (root) {
-            return file.getName().toUpperCase();
+            return "<html><b>"+file.getName().toUpperCase()+"</b></html>";
         }
         return file.getName();
     }

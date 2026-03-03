@@ -35,7 +35,9 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
         setText(node.toString());
 
         LucideIcon iconType = FileIconProvider.getIconForFile(file, ICON_SIZE);
-        setIcon(iconType.icon(ICON_SIZE, ICON_COLOR));
+        if (!node.isRoot()) {
+            setIcon(iconType.icon(ICON_SIZE, ICON_COLOR));
+        }
 
         setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
         setOpaque(false);
