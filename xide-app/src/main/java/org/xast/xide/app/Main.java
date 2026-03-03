@@ -6,6 +6,7 @@ import org.xast.xide.core.PluginManager;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.ui.MainFrame;
 import org.xast.xide.ui.utils.XideStyle;
+import org.xast.xide.utils.Debug;
 
 public class Main {
     public static void main(String[] args) {
@@ -14,11 +15,14 @@ public class Main {
             
             PluginManager pm = new PluginManager();
             pm.loadPlugins();
+
+            Workspace workspace = Workspace.init(args);
+            if (workspace.hasMultipleDirs()) {
+                Debug.error("Workspace cannot contains multiple folders");
+                System.exit(-1);
+            }
             
-            MainFrame frame = new MainFrame(
-                Workspace.init(args),
-                pm.getRegistry()
-            );
+            MainFrame frame = new MainFrame(workspace, pm.getRegistry());
             
             frame.setTitle("Xide");
             frame.show();

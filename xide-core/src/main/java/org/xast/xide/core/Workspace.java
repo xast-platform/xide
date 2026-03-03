@@ -1,9 +1,13 @@
 package org.xast.xide.core;
 
-import static org.xast.xide.core.Workspace.*;
-
 import java.io.File;
 import java.util.Arrays;
+
+import org.xast.xide.core.Workspace.Blank;
+import org.xast.xide.core.Workspace.Combined;
+import org.xast.xide.core.Workspace.Directory;
+import org.xast.xide.core.Workspace.ExistingFile;
+import org.xast.xide.core.Workspace.NewFile;
 
 public sealed interface Workspace 
     permits 
@@ -13,11 +17,39 @@ public sealed interface Workspace
         NewFile,
         Combined
 {
-    public static final record Blank() implements Workspace {}
-    public static final record Directory(File dir) implements Workspace {}
-    public static final record ExistingFile(File file) implements Workspace {}
-    public static final record NewFile(File file) implements Workspace {}
-    public static final record Combined(Workspace[] workspaces) implements Workspace {}
+    public boolean hasMultipleDirs();
+
+    public static final record Blank() implements Workspace {
+        public boolean hasMultipleDirs() {
+            return false;
+        }
+    }
+
+    public static final record Directory(File dir) implements Workspace {
+        public boolean hasMultipleDirs() {
+            return false;
+        }
+    }
+
+    public static final record ExistingFile(File file) implements Workspace {
+        public boolean hasMultipleDirs() {
+            return false;
+        }
+    }
+
+    public static final record NewFile(File file) implements Workspace {
+        public boolean hasMultipleDirs() {
+            return false;
+        }
+    }
+
+    public static final record Combined(Workspace[] workspaces) implements Workspace {
+        public boolean hasMultipleDirs() {
+            return Arrays.stream(workspaces)
+                .filter(ws -> ws instanceof Directory)
+                .count() > 1;
+        }
+    }
 
     public static Workspace init(String[] args) {
         return switch (args.length) {

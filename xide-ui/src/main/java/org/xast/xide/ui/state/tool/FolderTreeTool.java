@@ -2,8 +2,8 @@ package org.xast.xide.ui.state.tool;
 
 import org.xast.xide.core.Workspace;
 import org.xast.xide.ui.component.side.SideBar;
-import org.xast.xide.ui.component.side.view.FolderTreeView;
 import org.xast.xide.ui.component.side.view.SideBarView;
+import org.xast.xide.ui.component.side.view.folder_tree.FolderTreeView;
 
 public class FolderTreeTool implements Tool {
     private SideBar sideBar;

@@ -86,6 +86,7 @@ public class MainFrame {
 
     private void setupStyle() {
         XideStyle style = XideStyle.getCurrent();
+
         // Title bar
         UIManager.put("TitlePane.iconSize", new Dimension(
             XideStyle.ICON_WIDTH, 
@@ -102,6 +103,13 @@ public class MainFrame {
         // Focused items
         UIManager.put("Component.focusWidth", 3);
         UIManager.put("Component.focusColor", new Color(172, 108, 64, 172)); // softer orange
+
+        // File chooser
+        UIManager.put("FileChooser.font", style.uiFont());
+        UIManager.put("FileChooser.listFont", style.uiFont());
+        UIManager.put("FileChooser.textFont", style.uiFont());
+        UIManager.put("FileChooser.buttonFont", style.uiFont());
+        UIManager.put("FileChooser.labelFont", style.uiFont());
     }
 
     private void setupLayout() {
@@ -163,7 +171,7 @@ public class MainFrame {
             bottomPanel
         );
         verticalSplit.setResizeWeight(0.2);
-        verticalSplit.setContinuousLayout(true);
+        verticalSplit.setContinuousLayout(false);
         verticalSplit.setBorder(null);
 
         JSplitPane horizontalSplit = new JSplitPane(
@@ -172,7 +180,7 @@ public class MainFrame {
             verticalSplit
         );
         horizontalSplit.setResizeWeight(0.75);
-        horizontalSplit.setContinuousLayout(true);
+        horizontalSplit.setContinuousLayout(false);
         horizontalSplit.setBorder(null);
         horizontalSplit.setDividerLocation(XideStyle.SIDEBAR_WIDTH);
 

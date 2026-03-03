@@ -22,6 +22,6 @@ public class FileIconProvider {
 
 
         // default file icon
-        return LucideIcon.FILE_SEARCH_CORNER;
+        return LucideIcon.FILE;
     }
 }

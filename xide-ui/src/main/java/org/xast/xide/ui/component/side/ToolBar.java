@@ -1,12 +1,16 @@
 package org.xast.xide.ui.component.side;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.util.HashMap;
 
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JPanel;
+import javax.swing.JSeparator;
 
 import org.xast.xide.ui.state.tool.Tool;
+import org.xast.xide.utils.Debug;
 
 public class ToolBar extends JPanel{
     private HashMap<Class<? extends Tool>, Tool> tools = new HashMap<>();
@@ -18,8 +22,17 @@ public class ToolBar extends JPanel{
         toolBoxNorth = Box.createVerticalBox();
         toolBoxSouth = Box.createVerticalBox();
 
-        add(toolBoxNorth, BorderLayout.NORTH);
-        add(toolBoxSouth, BorderLayout.SOUTH);
+        add(
+            new JPanel(new BorderLayout()) {{
+                add(toolBoxNorth, BorderLayout.NORTH);
+                add(toolBoxSouth, BorderLayout.SOUTH);
+            }}, 
+            BorderLayout.WEST
+        );
+
+        JSeparator sep = new JSeparator(JSeparator.VERTICAL);
+        sep.setForeground(sep.getForeground().darker());
+        add(sep, BorderLayout.EAST);
     }
 
     public void addToolButtonNorth(ToolButton button) {
