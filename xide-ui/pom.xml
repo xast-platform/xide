@@ -20,13 +20,6 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- Xide API -->
-    <dependency>
-      <groupId>org.xast.xide</groupId>
-      <artifactId>xide-api</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
     <!-- Xide Core -->
     <dependency>
       <groupId>org.xast.xide</groupId>

@@ -30,6 +30,20 @@
       <artifactId>xide-ui</artifactId>
       <version>${project.version}</version>
     </dependency>
+    
+    <!-- Plugins (runtime dependencies for ServiceLoader) -->
+    <dependency>
+      <groupId>org.xast.xide</groupId>
+      <artifactId>xide-folder-tree-plugin</artifactId>
+      <version>${project.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.xast.xide</groupId>
+      <artifactId>xide-terminal-plugin</artifactId>
+      <version>${project.version}</version>
+      <scope>runtime</scope>
+    </dependency>
   </dependencies>
 
   <profiles>

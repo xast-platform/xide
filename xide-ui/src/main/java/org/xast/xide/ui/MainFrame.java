@@ -11,39 +11,43 @@ import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
+import org.xast.xide.core.plugin.ui.SideBarContext;
+import org.xast.xide.core.plugin.ui.UIContext;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
+import org.xast.xide.ui.components.menu.MenuBar;
+import org.xast.xide.ui.components.menu.MenuItem;
+import org.xast.xide.ui.components.menu.SingleItem;
 import org.xast.xide.ui.components.side.SideBar;
 import org.xast.xide.ui.components.side.ToolBar;
 import org.xast.xide.ui.components.side.ToolButton;
-import org.xast.xide.ui.tools.DummyTool;
-import org.xast.xide.ui.tools.FolderTreeTool;
-import org.xast.xide.ui.tools.SettingsTool;
-import org.xast.xide.ui.utils.LucideIcon;
+import org.xast.xide.ui.utils.FileChooser;
 import org.xast.xide.ui.utils.XideStyle;
+import org.xast.xide.ui.utils.FileChooser.FileChooserMode;
 
 import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDarkerIJTheme;
 
 import lombok.Getter;
 
-public class MainFrame {
+public class MainFrame implements UIContext {
     private JFrame frame;
 
     // Top-level panels
     @Getter
-    private final CodePanel codePanel;
+    private CodePanel codePanel;
     @Getter
-    private final SideBar sideBar;
+    private SideBar sideBar;
     @Getter
-    private final ToolBar toolBar;
+    private ToolBar toolBar;
     @Getter
-    private final BottomPanel bottomPanel;
+    private BottomPanel bottomPanel;
     @Getter
-    private final JMenuBar menuBar;
+    private MenuBar menuBar;
 
     // Services
-    private final PluginRegistry pluginRegistry;
+    private PluginRegistry pluginRegistry;
     private Workspace workspace;
+    private EventBus eventBus;
 
     static {
         JFrame.setDefaultLookAndFeelDecorated(true);
@@ -54,35 +58,41 @@ public class MainFrame {
 
     public MainFrame(
         Workspace workspace,
-        PluginRegistry pluginRegistry
+        PluginRegistry pluginRegistry,
+        EventBus eventBus
     ) {
         this.workspace = workspace;
         this.pluginRegistry = pluginRegistry;
+        this.eventBus = eventBus;
 
         setupStyle();
 
         frame = new JFrame();
-        codePanel = new CodePanel();
+        codePanel = new CodePanel(eventBus);
         sideBar = new SideBar();
         bottomPanel = new BottomPanel();
-        menuBar = new JMenuBar();
+        menuBar = new MenuBar(frame);
         toolBar = new ToolBar();
 
         setupLayout();
         setupEventListeners();
     }
     
-    private void setupEventListeners() {
-        EventBus eventBus = EventBus.getInstance();
+    public void loadPlugins() {
+        for (var toolPlugin : pluginRegistry.getToolPlugins()) {            
+            toolBar.addToolButton(
+                new ToolButton(
+                    toolPlugin.icon(), 
+                    toolPlugin.toolTip(), 
+                    toolPlugin.tool(this)
+                ),
+                toolPlugin.orientation()
+            );
+        }
         
-        eventBus.subscribe(WorkspaceChangedEvent.class, event -> {
-            this.workspace = event.workspace();
-            var tool = (FolderTreeTool) toolBar.getTool(FolderTreeTool.class);
-            if (tool != null) {
-                tool.setWorkspace(event.workspace());
-                tool.show();
-            }
-        });
+        for (var plugin : pluginRegistry.getBottomPanelPlugins()) {
+            bottomPanel.addPlugin(plugin);
+        }
     }
 
     public void setTitle(String title) {
@@ -97,8 +107,24 @@ public class MainFrame {
         );
     }
 
-    public JFrame getFrame() {
+    @Override
+    public JFrame frame() {
         return frame;
+    }
+
+    @Override
+    public Workspace currentWorkspace() {
+        return workspace;
+    }
+
+    @Override
+    public SideBarContext sideBar() {
+        return sideBar;
+    }
+
+    @Override
+    public EventBus eventBus() {
+        return eventBus;
     }
 
     private void setupStyle() {
@@ -140,68 +166,39 @@ public class MainFrame {
         frame.setLayout(new BorderLayout());
 
         // Menu bar
-        menuBar.setFont(style.uiFont());
-
-        menuBar.add(new JMenu("File") {{
-            add(new JMenuItem("Open folder") {{
-                setFont(style.uiFont());
-                addActionListener(a -> {
-                    JFileChooser fileChooser = new JFileChooser();
-                    fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                    int result = fileChooser.showOpenDialog(frame);
-                    if (result == JFileChooser.APPROVE_OPTION) {
-                        workspace = new Workspace.Directory(fileChooser.getSelectedFile());
-                        EventBus.getInstance().publish(new WorkspaceChangedEvent(workspace));
-                    }
+        menuBar.addMenu("File", new MenuItem[] {
+            new SingleItem("New file...", () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
+                fileChooser.save(frame, file -> {
+                    workspace = workspace.withFile(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
                 });
-            }});
-        }});
+            }),
 
-        frame.setJMenuBar(menuBar);
-
-        // Central panel 
-        // ...
-
-        // Side panel
-        toolBar.addToolButtonNorth(new ToolButton(
-            LucideIcon.FOLDER_TREE, 
-            "Project tree", 
-            new FolderTreeTool(sideBar, workspace)
-        ));
-        toolBar.addToolButtonNorth(new ToolButton(
-            LucideIcon.FILE_SEARCH_CORNER, 
-            "Search", 
-            new DummyTool()
-        ));
-        toolBar.addToolButtonSouth(new ToolButton(
-            LucideIcon.COG, 
-            "Settings", 
-            new SettingsTool(this)
-        ));
-        toolBar.setDefaultTool(FolderTreeTool.class);
+            new SingleItem("Open folder", () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
+                fileChooser.open(frame, file -> {
+                    workspace = new Workspace.Directory(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
+                });
+            }),
+        });
 
         // Split panes
-        JSplitPane verticalSplit = new JSplitPane(
-            JSplitPane.VERTICAL_SPLIT,
-            codePanel,
-            bottomPanel
-        );
-        verticalSplit.setResizeWeight(0.2);
-        verticalSplit.setContinuousLayout(false);
-        verticalSplit.setBorder(null);
+        JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, bottomPanel) {{
+            setResizeWeight(0.2);
+            setContinuousLayout(false);
+            setBorder(null);
+        }};
 
-        JSplitPane horizontalSplit = new JSplitPane(
-            JSplitPane.HORIZONTAL_SPLIT,
-            sideBar,
-            verticalSplit
-        );
-        horizontalSplit.setResizeWeight(0.75);
-        horizontalSplit.setContinuousLayout(false);
-        horizontalSplit.setBorder(null);
-        horizontalSplit.setDividerLocation(XideStyle.SIDEBAR_WIDTH);
+        JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sideBar, verticalSplit) {{
+            setResizeWeight(0.75);
+            setContinuousLayout(false);
+            setBorder(null);
+            setDividerLocation(XideStyle.SIDEBAR_WIDTH);
+        }};
 
         sideBar.setSplitPane(horizontalSplit);
-
         frame.add(horizontalSplit, BorderLayout.CENTER);
         frame.add(toolBar, BorderLayout.WEST);
 
@@ -209,5 +206,9 @@ public class MainFrame {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
+    }
+
+    private void setupEventListeners() {
+
     }
 }

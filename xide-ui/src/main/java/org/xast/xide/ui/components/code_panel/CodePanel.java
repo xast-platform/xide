@@ -8,31 +8,33 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.EventHandler;
 import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.TabCloseRequestedEvent;
 import org.xast.xide.ui.utils.XideStyle;
 
-public class CodePanel extends JPanel {
+public class CodePanel extends JPanel implements EventHandler {
     private JTabbedPane pane;
     private HashSet<File> openedFiles;
+    private EventBus eventBus;
 
-    public CodePanel() {
+    public CodePanel(EventBus eventBus) {
         super(new GridLayout());
 
         XideStyle style = XideStyle.getCurrent();
 
-        pane = new JTabbedPane();
-        pane.setFont(style.uiFont());
-        openedFiles = new HashSet<>();
+        this.eventBus = eventBus;
+        this.pane = new JTabbedPane();
+        this.pane.setFont(style.uiFont());
+        this.openedFiles = new HashSet<>();
         
-        add(pane);
+        add(pane);   
         
-        setupEventListeners();
+        setupEventListeners(eventBus);
     }
     
-    private void setupEventListeners() {
-        EventBus eventBus = EventBus.getInstance();
-        
+    @Override
+    public void setupEventListeners(EventBus eventBus) {        
         eventBus.subscribe(FileOpenRequestedEvent.class, event -> {
             openFile(event.file());
         });
@@ -73,6 +75,7 @@ public class CodePanel extends JPanel {
         pane.addTab(file.getName(), new EditorView(file));
 
         int index = pane.getTabCount() - 1;
-        pane.setTabComponentAt(index, new CodePanelTab(pane, openedFiles, file, file.exists()));
+        CodePanelTabModel model = new CodePanelTabModel(file.exists(), file);
+        pane.setTabComponentAt(index, new CodePanelTab(eventBus, pane, model));
     }
 }

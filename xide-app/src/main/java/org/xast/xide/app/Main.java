@@ -4,6 +4,7 @@ import javax.swing.SwingUtilities;
 
 import org.xast.xide.core.PluginManager;
 import org.xast.xide.core.Workspace;
+import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.MainFrame;
 import org.xast.xide.ui.utils.XideStyle;
@@ -21,9 +22,15 @@ public class Main {
                 Debug.error("Workspace cannot contains multiple folders");
                 System.exit(-1);
             }
+
+            EventBus eventBus = new EventBus();
+            MainFrame frame = new MainFrame(
+                workspace, 
+                pm.getRegistry(),
+                eventBus
+            );
             
-            MainFrame frame = new MainFrame(workspace, pm.getRegistry());
-            
+            frame.loadPlugins();
             frame.setTitle("Xide");
             frame.show();
         });

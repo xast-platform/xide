@@ -5,8 +5,8 @@ import java.awt.Insets;
 
 import javax.swing.JButton;
 
-import org.xast.xide.ui.tools.Tool;
-import org.xast.xide.ui.utils.LucideIcon;
+import org.xast.xide.core.plugin.tool.Tool;
+import org.xast.xide.core.utils.LucideIcon;
 
 import lombok.Getter;
 

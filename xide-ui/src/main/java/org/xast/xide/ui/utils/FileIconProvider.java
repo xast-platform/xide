@@ -2,6 +2,8 @@ package org.xast.xide.ui.utils;
 
 import java.io.File;
 
+import org.xast.xide.core.utils.LucideIcon;
+
 public class FileIconProvider {
     public static LucideIcon getIconForFile(File file, int size) {
         if (file.isDirectory()) {

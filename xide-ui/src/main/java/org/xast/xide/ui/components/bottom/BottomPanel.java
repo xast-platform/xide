@@ -5,6 +5,7 @@ import java.awt.BorderLayout;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
+import org.xast.xide.core.plugin.bottom.BottomPanelPlugin;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class BottomPanel extends JPanel {
@@ -17,8 +18,11 @@ public class BottomPanel extends JPanel {
 
         pane = new JTabbedPane();
         pane.setFont(style.uiFont());
-        pane.addTab("Terminal", new TerminalView());
 
         add(pane, BorderLayout.CENTER);
+    }
+
+    public void addPlugin(BottomPanelPlugin plugin) {
+        pane.addTab(plugin.tabName(), plugin.view());
     }
 }

@@ -7,10 +7,11 @@ import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 
-import org.xast.xide.ui.components.side.view.SideBarView;
+import org.xast.xide.core.plugin.ui.SideBarContext;
+import org.xast.xide.core.plugin.ui.SideBarView;
 import org.xast.xide.ui.utils.XideStyle;
 
-public class SideBar extends JPanel {
+public class SideBar extends JPanel implements SideBarContext {
     private Optional<JSplitPane> splitPane = Optional.empty();
     private SideBarView currentView;
     private int lastDividerLocation = XideStyle.SIDEBAR_WIDTH;
@@ -24,6 +25,7 @@ public class SideBar extends JPanel {
         add(sep, BorderLayout.EAST);
     }
 
+    @Override
     public void setView(SideBarView view) {
         if (view != currentView) {
             currentView = view;

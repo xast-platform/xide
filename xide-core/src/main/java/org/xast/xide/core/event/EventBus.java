@@ -6,20 +6,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class EventBus {
-    private static EventBus instance;
-    
+public class EventBus {   
     private final Map<Class<?>, List<Consumer<Object>>> subscribers;
     
-    private EventBus() {
+    public EventBus() {
         this.subscribers = new HashMap<>();
-    }
-    
-    public static EventBus getInstance() {
-        if (instance == null) {
-            instance = new EventBus();
-        }
-        return instance;
     }
     
     @SuppressWarnings("unchecked")

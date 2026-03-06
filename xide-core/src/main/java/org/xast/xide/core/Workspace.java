@@ -18,10 +18,19 @@ public sealed interface Workspace
         Combined
 {
     public boolean hasMultipleDirs();
+    public Workspace withFile(File file);
 
     public static final record Blank() implements Workspace {
         public boolean hasMultipleDirs() {
             return false;
+        }
+
+        public Workspace withFile(File file) {
+            if (file.exists()) {
+                return new ExistingFile(file);
+            } else {
+                return new NewFile(file);
+            }
         }
     }
 
@@ -29,17 +38,59 @@ public sealed interface Workspace
         public boolean hasMultipleDirs() {
             return false;
         }
+
+        public Workspace withFile(File file) {
+            if (file.exists()) {
+                return new Combined(new Workspace[] {
+                    this,
+                    new ExistingFile(file)
+                });
+            } else {
+                return new Combined(new Workspace[] {
+                    this,
+                    new NewFile(file)
+                });
+            }
+        }
     }
 
     public static final record ExistingFile(File file) implements Workspace {
         public boolean hasMultipleDirs() {
             return false;
         }
+
+        public Workspace withFile(File file) {
+            if (file.exists()) {
+                return new Combined(new Workspace[] {
+                    this,
+                    new ExistingFile(file)
+                });
+            } else {
+                return new Combined(new Workspace[] {
+                    this,
+                    new NewFile(file)
+                });
+            }
+        }
     }
 
     public static final record NewFile(File file) implements Workspace {
         public boolean hasMultipleDirs() {
             return false;
+        }
+
+        public Workspace withFile(File file) {
+            if (file.exists()) {
+                return new Combined(new Workspace[] {
+                    this,
+                    new ExistingFile(file)
+                });
+            } else {
+                return new Combined(new Workspace[] {
+                    this,
+                    new NewFile(file)
+                });
+            }
         }
     }
 
@@ -48,6 +99,16 @@ public sealed interface Workspace
             return Arrays.stream(workspaces)
                 .filter(ws -> ws instanceof Directory)
                 .count() > 1;
+        }
+
+        public Workspace withFile(File file) {
+            Workspace[] newWorkspaces = Arrays.copyOf(workspaces, workspaces.length + 1);
+            if (file.exists()) {
+                newWorkspaces[workspaces.length] = new ExistingFile(file);
+            } else {
+                newWorkspaces[workspaces.length] = new NewFile(file);
+            }
+            return new Combined(newWorkspaces);
         }
     }
 

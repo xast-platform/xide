@@ -7,7 +7,8 @@ import javax.swing.Box;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 
-import org.xast.xide.ui.tools.Tool;
+import org.xast.xide.core.plugin.tool.Tool;
+import org.xast.xide.core.plugin.tool.ToolOrientation;
 
 public class ToolBar extends JPanel{
     private HashMap<Class<? extends Tool>, Tool> tools = new HashMap<>();
@@ -32,19 +33,22 @@ public class ToolBar extends JPanel{
         add(sep, BorderLayout.EAST);
     }
 
-    public void addToolButtonNorth(ToolButton button) {
-        var tool = button.getTool();
+    public void addToolButton(ToolButton button, ToolOrientation orientation) {
+        boolean first = tools.isEmpty();
+        Tool tool = button.getTool();
         tools.put(tool.getClass(), tool);
-        toolBoxNorth.add(button);
+        
+        switch (orientation) {
+            case NORTH -> toolBoxNorth.add(button);
+            case SOUTH -> toolBoxSouth.add(button);
+        }
+
+        if (first) {
+            setDefaultTool(tool.getClass());
+        }
     }
 
-    public void addToolButtonSouth(ToolButton button) {
-        var tool = button.getTool();
-        tools.put(tool.getClass(), tool);
-        toolBoxSouth.add(button);
-    }
-
-    public void setDefaultTool(Class<? extends Tool> toolClass) {
+    private void setDefaultTool(Class<? extends Tool> toolClass) {
         Tool tool = tools.get(toolClass);
         if (tool != null) {
             tool.show();

@@ -11,16 +11,36 @@
   <packaging>pom</packaging>
 
   <modules>
-    <module>xide-api</module>
     <module>xide-core</module>
     <module>xide-ui</module>
     <module>xide-app</module>
+    <module>xide-standard-plugins</module>
   </modules>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.xast.xide</groupId>
+        <artifactId>xide-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.xast.xide</groupId>
+        <artifactId>xide-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.xast.xide</groupId>
+        <artifactId>xide-ui</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <repositories>
     <repository>

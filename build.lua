@@ -31,19 +31,32 @@ local function download_jdk(config)
 end
 
 local function build_app(_)
-   XBUILD.run("mvn clean package -DskipTests")
+   XBUILD.run("mvn clean install -DskipTests")
 end
 
 local function package(config)
    XBUILD.run("mkdir -p dist/app")
-   XBUILD.run("cp xide-app/target/*jar-with-dependencies.jar dist/app/xide.jar")
+   XBUILD.run("mkdir -p dist/lib")
+   XBUILD.run("mkdir -p dist/plugins")
+   
+   XBUILD.run("cp xide-app/target/xide-app-0.1.0.jar dist/app/xide.jar")
+   
+   XBUILD.run("cp xide-core/target/xide-core-0.1.0.jar dist/lib/")
+   XBUILD.run("cp xide-ui/target/xide-ui-0.1.0.jar dist/lib/")
+   
+   XBUILD.run("mvn dependency:copy-dependencies -DoutputDirectory=../dist/lib -DincludeScope=runtime -DexcludeGroupIds=org.xast.xide -f xide-app/pom.xml")
+   
+   XBUILD.run("cp xide-standard-plugins/xide-folder-tree-plugin/target/xide-folder-tree-plugin-0.1.0.jar dist/plugins/")
+   XBUILD.run("cp xide-standard-plugins/xide-terminal-plugin/target/xide-terminal-plugin-0.1.0.jar dist/plugins/")
+   XBUILD.run("cp xide-standard-plugins/xide-settings-plugin/target/xide-settings-plugin-0.1.0.jar dist/plugins/")
 
    if config.os_name == OS_NAME.WINDOWS then
       local launcher = XBUILD.open("dist/xide.bat", OPEN_MODE.WRITE)
       launcher:write(
          "@echo off\n" ..
          "set DIR=%~dp0\n" ..
-         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Xms64m -Xmx256m -jar \"%DIR%\\app\\xide.jar\" %*"
+         "set CLASSPATH=%DIR%\\app\\xide.jar;%DIR%\\lib\\*;%DIR%\\plugins\\*\n" ..
+         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Xms64m -Xmx256m -cp \"%CLASSPATH%\" org.xast.xide.app.Main %*"
       )
       launcher:close()
    else
@@ -51,7 +64,8 @@ local function package(config)
       launcher:write(
          "#!/usr/bin/env bash\n" ..
          "DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" ..
-         "\"$DIR/tools/jdk/linux/bin/java\" -Xms64m -Xmx256m -jar \"$DIR/app/xide.jar\" \"$@\""
+         "CLASSPATH=\"$DIR/app/xide.jar:$DIR/lib/*:$DIR/plugins/*\"\n" ..
+         "\"$DIR/tools/jdk/linux/bin/java\" -Xms64m -Xmx256m -cp \"$CLASSPATH\" org.xast.xide.app.Main \"$@\""
       )
       launcher:close()
       XBUILD.run("chmod +x dist/xide.sh")
