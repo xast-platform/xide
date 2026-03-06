@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.util.Optional;
 
 import javax.swing.JPanel;
+import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 
 import org.xast.xide.ui.component.side.view.SideBarView;
@@ -16,6 +17,11 @@ public class SideBar extends JPanel {
 
     public SideBar() {
         super(new BorderLayout());
+
+        JSeparator sep = new JSeparator(JSeparator.VERTICAL);
+        sep.setForeground(sep.getForeground().darker());
+
+        add(sep, BorderLayout.EAST);
     }
 
     public void setView(SideBarView view) {

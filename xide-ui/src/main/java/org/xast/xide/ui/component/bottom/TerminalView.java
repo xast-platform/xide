@@ -18,6 +18,9 @@ import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchService;
 import java.util.HashMap;
 
 public class TerminalView extends JPanel {
@@ -66,6 +69,7 @@ public class TerminalView extends JPanel {
             };
 
             terminal = new JediTermWidget(new ThemedSettingsProvider());
+            terminal.setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
             terminal.setTtyConnector(connector);
             terminal.start();
 

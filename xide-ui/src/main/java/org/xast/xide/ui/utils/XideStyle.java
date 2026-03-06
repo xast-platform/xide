@@ -16,7 +16,7 @@ public record XideStyle(
     private static XideStyle current;
 
     public static final int SIDEBAR_WIDTH = 150;
-    public static final int BOTTOM_BAR_HEIGHT = 110;
+    public static final int BOTTOM_BAR_HEIGHT = 150;
     public static final int WINDOW_WIDTH = 1600;
     public static final int WINDOW_HEIGHT = 900;
     public static final int ICON_WIDTH = 18;

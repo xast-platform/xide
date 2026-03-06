@@ -151,7 +151,7 @@ public class MainFrame {
         toolBar.addToolButtonNorth(new ToolButton(
             LucideIcon.FOLDER_TREE, 
             "Project tree", 
-            new FolderTreeTool(sideBar, workspace)
+            new FolderTreeTool(sideBar, codePanel, workspace)
         ));
         toolBar.addToolButtonNorth(new ToolButton(
             LucideIcon.FILE_SEARCH_CORNER, 

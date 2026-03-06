@@ -3,7 +3,11 @@ package org.xast.xide.ui.component.code_panel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Insets;
+import java.io.File;
+import java.nio.file.Files;
 
+import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
 
@@ -13,17 +17,30 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class EditorView extends JPanel {
-    private final RSyntaxTextArea textArea;
-    private final RTextScrollPane scrollPane;
+    private RSyntaxTextArea textArea;
+    private RTextScrollPane scrollPane;
+    private File file;
+    private boolean dirty = false;
 
-    public EditorView() {
+    public EditorView(File file) {
         super(new BorderLayout());
 
         XideStyle style = XideStyle.getCurrent();
         Font font = style.codeFont().deriveFont(16f);
+        String content = new String();
+
+        if (file.exists() && file.canRead()) {
+            try {
+                content = Files.readString(file.toPath());
+            } catch (Exception e) { 
+                e.printStackTrace(); 
+            }
+        } else {
+            dirty = true;
+        }
 
         // Create the text area
-        textArea = new RSyntaxTextArea();
+        textArea = new RSyntaxTextArea(content);
         textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         textArea.setCodeFoldingEnabled(true);
         textArea.setAntiAliasingEnabled(true);

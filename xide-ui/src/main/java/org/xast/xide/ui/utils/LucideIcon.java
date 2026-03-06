@@ -16,7 +16,9 @@ public enum LucideIcon {
     PACKAGE("package"),
     PARENTHESES("parentheses"),
     SCROLL_TEXT("scroll-text"),
-    VARIABLE("variable"),;
+    VARIABLE("variable"),
+    X("x");
+
     // Other icons
 
     private String name;

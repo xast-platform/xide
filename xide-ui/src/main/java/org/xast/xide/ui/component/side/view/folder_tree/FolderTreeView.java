@@ -5,6 +5,8 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Optional;
@@ -15,11 +17,12 @@ import javax.swing.tree.TreePath;
 
 import org.xast.xide.core.Workspace;
 import org.xast.xide.core.Workspace.Directory;
+import org.xast.xide.ui.component.code_panel.CodePanel;
 import org.xast.xide.ui.component.side.view.SideBarView;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class FolderTreeView extends SideBarView {
-    public FolderTreeView(Workspace workspace) {
+    public FolderTreeView(CodePanel codePanel, Workspace workspace) {
         XideStyle style = XideStyle.getCurrent();
 
         setLayout(new GridLayout());
@@ -63,6 +66,22 @@ public class FolderTreeView extends SideBarView {
                     boolean leaf
                 ) {
                     super.paintRow(g, clipBounds, insets, bounds, path, row, isExpanded, hasBeenExpanded, leaf);
+                }
+            });
+            tree.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getClickCount() == 2) {
+                        TreePath path = tree.getPathForLocation(e.getX(), e.getY());
+                        if (path == null) return;
+
+                        FileNode node = (FileNode) path.getLastPathComponent();
+                        File file = node.file();
+
+                        if (file.isFile()) {
+                            codePanel.openFile(file);
+                        }
+                    }
                 }
             });
 

@@ -21,10 +21,6 @@ public class BottomPanel extends JPanel {
         pane.setFont(style.uiFont());
         pane.addTab("Terminal", new TerminalView());
 
-        JSeparator sep = new JSeparator(JSeparator.VERTICAL);
-        sep.setForeground(sep.getForeground().darker());
-
-        add(sep, BorderLayout.WEST);
         add(pane, BorderLayout.CENTER);
     }
 }
