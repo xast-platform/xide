@@ -9,14 +9,16 @@ import javax.swing.*;
 
 import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
-import org.xast.xide.ui.component.bottom.BottomPanel;
-import org.xast.xide.ui.component.code_panel.CodePanel;
-import org.xast.xide.ui.component.side.SideBar;
-import org.xast.xide.ui.component.side.ToolBar;
-import org.xast.xide.ui.component.side.ToolButton;
-import org.xast.xide.ui.state.tool.DummyTool;
-import org.xast.xide.ui.state.tool.FolderTreeTool;
-import org.xast.xide.ui.state.tool.SettingsTool;
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.WorkspaceChangedEvent;
+import org.xast.xide.ui.components.bottom.BottomPanel;
+import org.xast.xide.ui.components.code_panel.CodePanel;
+import org.xast.xide.ui.components.side.SideBar;
+import org.xast.xide.ui.components.side.ToolBar;
+import org.xast.xide.ui.components.side.ToolButton;
+import org.xast.xide.ui.tools.DummyTool;
+import org.xast.xide.ui.tools.FolderTreeTool;
+import org.xast.xide.ui.tools.SettingsTool;
 import org.xast.xide.ui.utils.LucideIcon;
 import org.xast.xide.ui.utils.XideStyle;
 
@@ -67,6 +69,20 @@ public class MainFrame {
         toolBar = new ToolBar();
 
         setupLayout();
+        setupEventListeners();
+    }
+    
+    private void setupEventListeners() {
+        EventBus eventBus = EventBus.getInstance();
+        
+        eventBus.subscribe(WorkspaceChangedEvent.class, event -> {
+            this.workspace = event.workspace();
+            var tool = (FolderTreeTool) toolBar.getTool(FolderTreeTool.class);
+            if (tool != null) {
+                tool.setWorkspace(event.workspace());
+                tool.show();
+            }
+        });
     }
 
     public void setTitle(String title) {
@@ -126,22 +142,21 @@ public class MainFrame {
         // Menu bar
         menuBar.setFont(style.uiFont());
 
-        var file = new JMenu("File");
-        var openFolder = new JMenuItem("Open folder");
-        openFolder.addActionListener(a -> {
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            int result = fileChooser.showOpenDialog(frame);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                workspace = new Workspace.Directory(fileChooser.getSelectedFile());
-                var tool = (FolderTreeTool) toolBar.getTool(FolderTreeTool.class);
-                tool.setWorkspace(workspace);
-                tool.show();
-            }
-        });
-        file.add(openFolder);
+        menuBar.add(new JMenu("File") {{
+            add(new JMenuItem("Open folder") {{
+                setFont(style.uiFont());
+                addActionListener(a -> {
+                    JFileChooser fileChooser = new JFileChooser();
+                    fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                    int result = fileChooser.showOpenDialog(frame);
+                    if (result == JFileChooser.APPROVE_OPTION) {
+                        workspace = new Workspace.Directory(fileChooser.getSelectedFile());
+                        EventBus.getInstance().publish(new WorkspaceChangedEvent(workspace));
+                    }
+                });
+            }});
+        }});
 
-        menuBar.add(file);
         frame.setJMenuBar(menuBar);
 
         // Central panel 
@@ -151,7 +166,7 @@ public class MainFrame {
         toolBar.addToolButtonNorth(new ToolButton(
             LucideIcon.FOLDER_TREE, 
             "Project tree", 
-            new FolderTreeTool(sideBar, codePanel, workspace)
+            new FolderTreeTool(sideBar, workspace)
         ));
         toolBar.addToolButtonNorth(new ToolButton(
             LucideIcon.FILE_SEARCH_CORNER, 

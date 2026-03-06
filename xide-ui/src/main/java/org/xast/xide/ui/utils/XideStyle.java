@@ -9,7 +9,7 @@ import lombok.Setter;
 public record XideStyle(
     Font uiFont,
     Font codeFont,
-    Icon favicon,
+    FavIcon favicon,
     Dimension windowSize
 ) {
     @Setter
@@ -35,7 +35,7 @@ public record XideStyle(
 
     public static XideStyle defaultStyle() {
         AssetLoader assetLoader = AssetLoader.getInstance();
-        Icon favicon = assetLoader.loadIcon(DEFAULT_ICON);
+        FavIcon favicon = assetLoader.loadIcon(DEFAULT_ICON);
         Font uiFont = assetLoader.loadFont(DEFAULT_UI_FONT, 16f);
         Font codeFont = assetLoader.loadFont(DEFAULT_CODE_FONT, 14f);
         Dimension windowSize = new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT);

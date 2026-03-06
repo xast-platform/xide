@@ -30,7 +30,7 @@ public class AssetLoader {
         }
     }
 
-    public synchronized Icon loadIcon(String path) {
+    public synchronized FavIcon loadIcon(String path) {
         FlatSVGIcon svgIcon = new FlatSVGIcon(
             "icons/logo.svg", 
             XideStyle.ICON_WIDTH,
@@ -46,6 +46,6 @@ public class AssetLoader {
         svgIcon.paintIcon(null, g, 0, 0);
         g.dispose();
 
-        return new Icon(img);
+        return new FavIcon(img);
     }
 }

@@ -1,0 +1,25 @@
+package org.xast.xide.ui.tools;
+
+import org.xast.xide.core.Workspace;
+import org.xast.xide.ui.components.side.SideBar;
+import org.xast.xide.ui.components.side.view.SideBarView;
+import org.xast.xide.ui.components.side.view.folder_tree.FolderTreeView;
+
+public class FolderTreeTool implements Tool {
+    private SideBar sideBar;
+    private SideBarView view;
+
+    public FolderTreeTool(SideBar sideBar, Workspace workspace) {
+        this.sideBar = sideBar;
+        this.view = new FolderTreeView(workspace);
+    }
+
+    public void setWorkspace(Workspace workspace) {
+        this.view = new FolderTreeView(workspace);
+    }
+
+    @Override
+    public void show() {
+        sideBar.setView(view);
+    }
+}
