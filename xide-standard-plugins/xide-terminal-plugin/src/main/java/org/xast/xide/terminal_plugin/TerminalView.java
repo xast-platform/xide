@@ -13,12 +13,14 @@ import com.pty4j.PtyProcessBuilder;
 import com.pty4j.WinSize;
 
 import org.xast.xide.core.plugin.bottom.BottomPanelView;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.utils.XideStyle;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
@@ -82,8 +84,8 @@ public class TerminalView extends BottomPanelView {
             });
 
             SwingUtilities.invokeLater(this::updateTerminalSize);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            Debug.error("Cannot initialize terminal: "+e.getMessage());
         }
     }
 

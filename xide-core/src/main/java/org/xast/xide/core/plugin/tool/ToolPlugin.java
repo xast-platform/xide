@@ -11,4 +11,6 @@ public interface ToolPlugin {
     LucideIcon icon();
 
     Tool tool(UIContext context);
+
+    boolean runAtStartup();
 }

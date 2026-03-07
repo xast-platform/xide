@@ -2,6 +2,7 @@ package org.xast.xide.core;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Optional;
 
 import org.xast.xide.core.Workspace.Blank;
 import org.xast.xide.core.Workspace.Combined;
@@ -19,6 +20,7 @@ public sealed interface Workspace
 {
     public boolean hasMultipleDirs();
     public Workspace withFile(File file);
+    public Optional<File> getDirectory();
 
     public static final record Blank() implements Workspace {
         public boolean hasMultipleDirs() {
@@ -31,6 +33,10 @@ public sealed interface Workspace
             } else {
                 return new NewFile(file);
             }
+        }
+
+        public Optional<File> getDirectory() {
+            return Optional.empty();
         }
     }
 
@@ -52,6 +58,10 @@ public sealed interface Workspace
                 });
             }
         }
+
+        public Optional<File> getDirectory() {
+            return Optional.of(dir);
+        }
     }
 
     public static final record ExistingFile(File file) implements Workspace {
@@ -71,6 +81,10 @@ public sealed interface Workspace
                     new NewFile(file)
                 });
             }
+        }
+
+        public Optional<File> getDirectory() {
+            return Optional.empty();
         }
     }
 
@@ -92,6 +106,10 @@ public sealed interface Workspace
                 });
             }
         }
+
+        public Optional<File> getDirectory() {
+            return Optional.empty();
+        }
     }
 
     public static final record Combined(Workspace[] workspaces) implements Workspace {
@@ -109,6 +127,13 @@ public sealed interface Workspace
                 newWorkspaces[workspaces.length] = new NewFile(file);
             }
             return new Combined(newWorkspaces);
+        }
+
+        public Optional<File> getDirectory() {
+            return Arrays.stream(workspaces)
+                .filter(ws -> ws instanceof Directory)
+                .map(ws -> ((Directory) ws).dir())
+                .findAny();
         }
     }
 

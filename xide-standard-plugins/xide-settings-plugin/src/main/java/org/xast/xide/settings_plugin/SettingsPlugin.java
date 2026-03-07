@@ -27,4 +27,8 @@ public class SettingsPlugin implements ToolPlugin {
         return new SettingsTool(context.frame());
     }
     
+    @Override
+    public boolean runAtStartup() {
+        return false;
+    }
 }

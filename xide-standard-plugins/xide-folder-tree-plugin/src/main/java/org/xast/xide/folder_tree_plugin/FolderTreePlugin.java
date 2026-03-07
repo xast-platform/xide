@@ -30,4 +30,9 @@ public class FolderTreePlugin implements ToolPlugin {
             context.currentWorkspace()
         );
     }
+
+    @Override
+    public boolean runAtStartup() {
+        return true;
+    }
 }

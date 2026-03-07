@@ -4,53 +4,46 @@ import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Consumer;
-
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
+import javax.swing.JScrollPane;
 import javax.swing.tree.TreePath;
-
 import org.xast.xide.core.Workspace;
-import org.xast.xide.core.Workspace.Directory;
 import org.xast.xide.core.plugin.ui.SideBarView;
 import org.xast.xide.folder_tree_plugin.model.FileNode;
 import org.xast.xide.folder_tree_plugin.model.FolderTreeModel;
 import org.xast.xide.ui.components.CenteredLabel;
 
 public class FolderTreeView extends SideBarView {
-    private Optional<JTree> tree = Optional.empty();
+    private Optional<FolderTreeModel> model = Optional.empty();
+    private Optional<FolderTree> tree = Optional.empty();
 
     public FolderTreeView(Workspace workspace) {
         setLayout(new GridLayout());
 
         JComponent currentView;
-        Optional<File> fileNode = Optional.empty();
-
-        switch (workspace) {
-            case Workspace.Directory directory -> {
-                fileNode = Optional.of(directory.dir());
-            }
-            case Workspace.Combined combined -> {
-                fileNode = Arrays
-                    .stream(combined.workspaces())
-                    .filter(ws -> ws instanceof Directory)
-                    .map(ws -> ((Directory) ws).dir())
-                    .findAny();
-            }
-            default -> {}
-        }
+        Optional<File> fileNode = workspace.getDirectory();     
 
         if (fileNode.isPresent()) {
-            currentView = new FolderTree(new FolderTreeModel(fileNode.get()));
+            model = Optional.of(new FolderTreeModel(fileNode.get()));
+            tree = Optional.of(new FolderTree(model.get()));
+            currentView = tree.get();
         } else {
             currentView = new CenteredLabel("No workspace opened", 100, 18f);
         }
 
         JScrollPane scrollPane = new JScrollPane(currentView);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
-
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         add(scrollPane);
+    }
+
+    public void refreshTree(File directory) {
+        if (tree.isEmpty() || model.isEmpty() || directory == null) {
+            return;
+        }
+        model.get().refreshDirectory(directory);
     }
 
     public void onItemClick(Consumer<File> consumer) {

@@ -86,7 +86,8 @@ public class MainFrame implements UIContext {
                     toolPlugin.toolTip(), 
                     toolPlugin.tool(this)
                 ),
-                toolPlugin.orientation()
+                toolPlugin.orientation(),
+                toolPlugin.runAtStartup()
             );
         }
         

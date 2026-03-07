@@ -33,8 +33,7 @@ public class ToolBar extends JPanel{
         add(sep, BorderLayout.EAST);
     }
 
-    public void addToolButton(ToolButton button, ToolOrientation orientation) {
-        boolean first = tools.isEmpty();
+    public void addToolButton(ToolButton button, ToolOrientation orientation, boolean runAtStartup) {
         Tool tool = button.getTool();
         tools.put(tool.getClass(), tool);
         
@@ -43,14 +42,7 @@ public class ToolBar extends JPanel{
             case SOUTH -> toolBoxSouth.add(button);
         }
 
-        if (first) {
-            setDefaultTool(tool.getClass());
-        }
-    }
-
-    private void setDefaultTool(Class<? extends Tool> toolClass) {
-        Tool tool = tools.get(toolClass);
-        if (tool != null) {
+        if (runAtStartup) {
             tool.show();
         }
     }

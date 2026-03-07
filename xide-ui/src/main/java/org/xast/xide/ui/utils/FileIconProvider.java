@@ -21,6 +21,8 @@ public class FileIconProvider {
             return LucideIcon.SCROLL_TEXT;
         if (name.endsWith(".xbc")) 
             return LucideIcon.PACKAGE;
+        if (name.endsWith(".java")) 
+            return LucideIcon.COFFEE;
 
 
         // default file icon

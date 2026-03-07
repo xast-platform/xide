@@ -3,17 +3,17 @@ package org.xast.xide.ui.components.code_panel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.Insets;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 
-import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class EditorView extends JPanel {
@@ -32,8 +32,8 @@ public class EditorView extends JPanel {
         if (file.exists() && file.canRead()) {
             try {
                 content = Files.readString(file.toPath());
-            } catch (Exception e) { 
-                e.printStackTrace(); 
+            } catch (IOException e) { 
+                Debug.error("Cannot read file `"+file.getName()+"`: "+e.getMessage());
             }
         } else {
             dirty = true;
