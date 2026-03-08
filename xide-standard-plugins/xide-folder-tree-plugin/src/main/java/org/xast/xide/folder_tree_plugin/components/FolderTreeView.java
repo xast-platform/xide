@@ -9,6 +9,8 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JScrollPane;
+import javax.swing.event.TreeExpansionEvent;
+import javax.swing.event.TreeExpansionListener;
 import javax.swing.tree.TreePath;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.core.plugin.ui.SideBarView;
@@ -66,6 +68,32 @@ public class FolderTreeView extends SideBarView {
                     }
                 }
             }
+        });
+    }
+
+    public void onDirectoryExpanded(Consumer<File> consumer) {
+        if (tree.isEmpty()) {
+            return;
+        }
+
+        tree.get().addTreeExpansionListener(new TreeExpansionListener() {
+            @Override
+            public void treeExpanded(TreeExpansionEvent event) {
+                TreePath path = event.getPath();
+                if (path == null) {
+                    return;
+                }
+
+                FileNode node = (FileNode) path.getLastPathComponent();
+                File file = node.file();
+
+                if (file.isDirectory()) {
+                    consumer.accept(file);
+                }
+            }
+
+            @Override
+            public void treeCollapsed(TreeExpansionEvent event) {}
         });
     }
 }

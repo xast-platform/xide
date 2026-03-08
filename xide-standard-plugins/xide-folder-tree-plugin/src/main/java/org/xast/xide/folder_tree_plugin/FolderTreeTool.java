@@ -9,7 +9,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchService;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.SwingUtilities;
 
@@ -31,6 +32,7 @@ public class FolderTreeTool implements Tool, EventHandler {
     private FolderTreeView view;
     private Optional<WatchService> watchService = Optional.empty();
     private Optional<Thread> watchThread = Optional.empty();
+    private final Set<Path> registeredDirectories = ConcurrentHashMap.newKeySet();
     private long lastUpdate = 0;
 
     public FolderTreeTool(EventBus eventBus, SideBarContext sideBar, Workspace workspace) {
@@ -39,6 +41,7 @@ public class FolderTreeTool implements Tool, EventHandler {
         this.eventBus = eventBus;
         this.view = new FolderTreeView(workspace);
 
+        bindViewListeners();
         setupEventListeners(eventBus);
         setupWatchService();
         startWatchThread();
@@ -50,6 +53,7 @@ public class FolderTreeTool implements Tool, EventHandler {
         this.workspace = workspace;
         this.view = new FolderTreeView(workspace);
 
+        bindViewListeners();
         setupWatchService();
         startWatchThread();
     }
@@ -61,8 +65,6 @@ public class FolderTreeTool implements Tool, EventHandler {
 
     @Override
     public void setupEventListeners(EventBus eventBus) {
-        view.onItemClick(file -> eventBus.publish(new FileOpenRequestedEvent(file)));
-
         eventBus.subscribe(WorkspaceChangedEvent.class, e -> {
             setWorkspace(e.workspace());
             show();
@@ -71,6 +73,11 @@ public class FolderTreeTool implements Tool, EventHandler {
         eventBus.subscribe(FileSystemChangedEvent.class, e -> {
             SwingUtilities.invokeLater(() -> view.refreshTree(e.dir()));
         });
+    }
+
+    private void bindViewListeners() {
+        view.onItemClick(file -> eventBus.publish(new FileOpenRequestedEvent(file)));
+        view.onDirectoryExpanded(this::registerExpandedDirectory);
     }
 
     private void setupWatchService() {
@@ -85,6 +92,8 @@ public class FolderTreeTool implements Tool, EventHandler {
             }
         }
 
+        registeredDirectories.clear();
+
         Optional<File> dir = workspace.getDirectory();
         if (dir.isEmpty()) {
             watchService = Optional.empty();
@@ -93,7 +102,7 @@ public class FolderTreeTool implements Tool, EventHandler {
 
         try {
             watchService = Optional.of(FileSystems.getDefault().newWatchService());
-            registerDirectoryTree(dir.get().toPath());
+            registerDirectory(dir.get().toPath());
         } catch (IOException e) {
             Debug.error("Cannot handle file system watch service: " + e.getMessage());
             watchService = Optional.empty();
@@ -105,25 +114,21 @@ public class FolderTreeTool implements Tool, EventHandler {
             return;
         }
 
-        directory.register(
-            watchService.get(),
-            StandardWatchEventKinds.ENTRY_CREATE,
-            StandardWatchEventKinds.ENTRY_DELETE,
-            StandardWatchEventKinds.ENTRY_MODIFY
-        );
-    }
+        Path normalized = directory.toAbsolutePath().normalize();
+        if (!registeredDirectories.add(normalized)) {
+            return;
+        }
 
-    private void registerDirectoryTree(Path root) throws IOException {
-        try (Stream<Path> stream = Files.walk(root)) {
-            stream
-                .filter(Files::isDirectory)
-                .forEach(path -> {
-                    try {
-                        registerDirectory(path);
-                    } catch (IOException e) {
-                        Debug.error("Cannot register directory for watching: " + path + " -> " + e.getMessage());
-                    }
-                });
+        try {
+            normalized.register(
+                watchService.get(),
+                StandardWatchEventKinds.ENTRY_CREATE,
+                StandardWatchEventKinds.ENTRY_DELETE,
+                StandardWatchEventKinds.ENTRY_MODIFY
+            );
+        } catch (IOException e) {
+            registeredDirectories.remove(normalized);
+            throw e;
         }
     }
 
@@ -149,9 +154,9 @@ public class FolderTreeTool implements Tool, EventHandler {
 
                         if (kind == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(changedAbsolute)) {
                             try {
-                                registerDirectoryTree(changedAbsolute);
+                                registerDirectory(changedAbsolute);
                             } catch (IOException e) {
-                                Debug.error("Cannot register new directory tree: " + changedAbsolute + " -> " + e.getMessage());
+                                Debug.error("Cannot register new directory: " + changedAbsolute + " -> " + e.getMessage());
                             }
                         }
 
@@ -159,14 +164,24 @@ public class FolderTreeTool implements Tool, EventHandler {
                             ? changedAbsolute.getParent()
                             : watchedDir;
 
-                        if (System.currentTimeMillis() - lastUpdate > 200) {
+                        if (kind == StandardWatchEventKinds.ENTRY_DELETE || System.currentTimeMillis() - lastUpdate > 200) {
                             eventBus.publish(new FileSystemChangedEvent(parentFolder.toFile()));
                             lastUpdate = System.currentTimeMillis();
                         }
                     }
 
                     if (!key.reset()) {
-                        break;
+                        Path invalidDirectory = ((Path) key.watchable()).toAbsolutePath().normalize();
+                        registeredDirectories.remove(invalidDirectory);
+
+                        Path parentDirectory = invalidDirectory.getParent();
+                        if (parentDirectory != null) {
+                            eventBus.publish(new FileSystemChangedEvent(parentDirectory.toFile()));
+                        }
+
+                        if (registeredDirectories.isEmpty()) {
+                            break;
+                        }
                     }
                 }
             } catch (InterruptedException e) {
@@ -191,6 +206,20 @@ public class FolderTreeTool implements Tool, EventHandler {
                 Debug.error("Cannot close file system watch service: " + e.getMessage());
             }
             watchService = Optional.empty();
+        }
+
+        registeredDirectories.clear();
+    }
+
+    private void registerExpandedDirectory(File directory) {
+        if (directory == null || !directory.isDirectory()) {
+            return;
+        }
+
+        try {
+            registerDirectory(directory.toPath());
+        } catch (IOException e) {
+            Debug.error("Cannot register expanded directory: " + directory + " -> " + e.getMessage());
         }
     }
 }
