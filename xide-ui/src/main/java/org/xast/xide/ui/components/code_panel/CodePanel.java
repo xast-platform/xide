@@ -3,22 +3,28 @@ package org.xast.xide.ui.components.code_panel;
 import java.awt.GridLayout;
 import java.io.File;
 import java.util.HashSet;
+import java.util.Optional;
 
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
+import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.EventHandler;
 import org.xast.xide.core.event.FileOpenRequestedEvent;
+import org.xast.xide.core.event.FileSaveRequestedEvent;
 import org.xast.xide.core.event.TabCloseRequestedEvent;
+import org.xast.xide.core.plugin.file.FilePlugin;
+import org.xast.xide.ui.utils.SyntaxStyle;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class CodePanel extends JPanel implements EventHandler {
     private JTabbedPane pane;
     private HashSet<File> openedFiles;
     private EventBus eventBus;
+    private PluginRegistry pluginRegistry;
 
-    public CodePanel(EventBus eventBus) {
+    public CodePanel(EventBus eventBus, PluginRegistry pluginRegistry) {
         super(new GridLayout());
 
         XideStyle style = XideStyle.getCurrent();
@@ -27,6 +33,7 @@ public class CodePanel extends JPanel implements EventHandler {
         this.pane = new JTabbedPane();
         this.pane.setFont(style.uiFont());
         this.openedFiles = new HashSet<>();
+        this.pluginRegistry = pluginRegistry;
         
         add(pane);   
         
@@ -63,7 +70,7 @@ public class CodePanel extends JPanel implements EventHandler {
         }
     }
 
-    public void openFile(File file) {
+    private void openFile(File file) {
         if (file.isDirectory()) {
             return;
         }
@@ -72,10 +79,36 @@ public class CodePanel extends JPanel implements EventHandler {
             return;
         }
 
-        pane.addTab(file.getName(), new EditorView(file));
+        String ext = file.getName().contains(".") 
+            ? file.getName().substring(file.getName().lastIndexOf(".") + 1) 
+            : "";
+
+        Optional<FilePlugin> plugin = Optional.ofNullable(
+            pluginRegistry.getFilePlugins().get(ext)
+        );
+
+        pane.addTab(
+            file.getName(), 
+            plugin.isPresent()
+                ? plugin.get().view(eventBus, file)
+                : new EditorView(eventBus, file, SyntaxStyle.Plain, 4)
+        );
 
         int index = pane.getTabCount() - 1;
         CodePanelTabModel model = new CodePanelTabModel(file.exists(), file);
         pane.setTabComponentAt(index, new CodePanelTab(eventBus, pane, model));
+    }
+
+    public void saveCurrentFile() {
+        int index = pane.getSelectedIndex();
+        if (index == -1) {
+            return;
+        }
+
+        var component = pane.getTabComponentAt(index);
+        if (component instanceof CodePanelTab) {
+            CodePanelTab tab = (CodePanelTab) component;
+            eventBus.publish(new FileSaveRequestedEvent(tab.getModel().getFile(), true));
+        }
     }
 }

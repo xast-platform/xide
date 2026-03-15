@@ -7,23 +7,32 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
-import javax.swing.JPanel;
 import javax.swing.UIManager;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.FileSaveRequestedEvent;
+import org.xast.xide.core.plugin.ui.CodePanelView;
 import org.xast.xide.core.utils.Debug;
+import org.xast.xide.ui.utils.SyntaxStyle;
 import org.xast.xide.ui.utils.XideStyle;
 
-public class EditorView extends JPanel {
+import lombok.AllArgsConstructor;
+
+public class EditorView extends CodePanelView {
     private RSyntaxTextArea textArea;
     private RTextScrollPane scrollPane;
-    private File file;
-    private boolean dirty = false;
 
-    public EditorView(File file) {
-        super(new BorderLayout());
+    public EditorView(
+        EventBus eventBus, 
+        File file, 
+        SyntaxStyle syntaxStyle, 
+        int tabSize
+    ) {
+        super();
 
         XideStyle style = XideStyle.getCurrent();
         Font font = style.codeFont().deriveFont(16f);
@@ -35,15 +44,18 @@ public class EditorView extends JPanel {
             } catch (IOException e) { 
                 Debug.error("Cannot read file `"+file.getName()+"`: "+e.getMessage());
             }
-        } else {
-            dirty = true;
         }
 
         // Create the text area
         textArea = new RSyntaxTextArea(content);
-        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
+        textArea.setSyntaxEditingStyle(syntaxStyle.getMimeType());
         textArea.setCodeFoldingEnabled(true);
         textArea.setAntiAliasingEnabled(true);
+        textArea.setTabsEmulated(true);
+        textArea.setTabSize(tabSize);
+        textArea.getDocument().addDocumentListener(
+            new EditorDocumentListener(eventBus, file)
+        );
 
         // Set IDE theme
         Color bgColor = UIManager.getColor("TextArea.background");
@@ -68,5 +80,24 @@ public class EditorView extends JPanel {
 
     public void setSyntaxEditingStyle(String style) {
         textArea.setSyntaxEditingStyle(style);
+    }
+
+    @AllArgsConstructor
+    private static class EditorDocumentListener implements DocumentListener {
+        private EventBus eventBus;
+        private File file;
+
+        @Override
+        public void insertUpdate(DocumentEvent e) {
+            eventBus.publish(new FileSaveRequestedEvent(file, false));
+        }
+
+        @Override
+        public void removeUpdate(DocumentEvent e) {
+            eventBus.publish(new FileSaveRequestedEvent(file, false));
+        }
+
+        @Override
+        public void changedUpdate(DocumentEvent e) {}
     }
 }

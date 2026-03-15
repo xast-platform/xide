@@ -10,6 +10,7 @@ import javax.swing.*;
 import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
@@ -68,7 +69,7 @@ public class MainFrame implements UIContext {
         setupStyle();
 
         frame = new JFrame();
-        codePanel = new CodePanel(eventBus);
+        codePanel = new CodePanel(eventBus, pluginRegistry);
         sideBar = new SideBar();
         bottomPanel = new BottomPanel();
         menuBar = new MenuBar(frame);
@@ -173,6 +174,7 @@ public class MainFrame implements UIContext {
                 fileChooser.save(frame, file -> {
                     workspace = workspace.withFile(file);
                     eventBus.publish(new WorkspaceChangedEvent(workspace));
+                    eventBus.publish(new FileOpenRequestedEvent(file));
                 });
             }),
 
@@ -182,6 +184,10 @@ public class MainFrame implements UIContext {
                     workspace = new Workspace.Directory(file);
                     eventBus.publish(new WorkspaceChangedEvent(workspace));
                 });
+            }),
+
+            new SingleItem("Save", () -> {
+                codePanel.saveCurrentFile();
             }),
         });
 

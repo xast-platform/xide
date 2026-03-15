@@ -15,9 +15,13 @@ import org.xast.xide.core.event.TabCloseRequestedEvent;
 import org.xast.xide.core.utils.LucideIcon;
 import org.xast.xide.ui.utils.XideStyle;
 
+import lombok.Getter;
+
 public class CodePanelTab extends JPanel implements EventHandler {
-    private JButton close;
+    @Getter
     private CodePanelTabModel model;
+    private JButton close;
+    private CodePanelTabTitle title;
 
     public CodePanelTab(EventBus eventBus, JTabbedPane pane, CodePanelTabModel model) {
         XideStyle style = XideStyle.getCurrent();
@@ -25,13 +29,12 @@ public class CodePanelTab extends JPanel implements EventHandler {
         setOpaque(false);
         setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
 
-        CodePanelTabTitle title = new CodePanelTabTitle(model.isSaved(), pane, this);
-        title.setFont(style.uiFont());
-
+        this.title = new CodePanelTabTitle(model);
+        this.title.setFont(style.uiFont());
         this.close = new JButton(LucideIcon.X.icon(12, Color.WHITE));
         this.model = model;
 
-        add(title);
+        add(this.title);
         add(Box.createHorizontalStrut(6));
         add(close);
 
@@ -41,8 +44,9 @@ public class CodePanelTab extends JPanel implements EventHandler {
     @Override
     public void setupEventListeners(EventBus eventBus) {
         eventBus.subscribe(FileSaveRequestedEvent.class, e -> {
-            if (!model.isSaved()) {
-                model.setSaved(true);
+            if (model.getFile().equals(e.file()) && model.isSaved() != e.saved()) {
+                model.setSaved(e.saved());
+                title.refresh();
             }
         });
 

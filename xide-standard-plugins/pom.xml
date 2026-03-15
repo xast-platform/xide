@@ -22,5 +22,6 @@
         <module>xide-folder-tree-plugin</module>
         <module>xide-terminal-plugin</module>
         <module>xide-settings-plugin</module>
+        <module>xide-rust-file-plugin</module>
     </modules>
 </project>

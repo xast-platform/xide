@@ -30,6 +30,7 @@ public class EventBus {
                     handler.accept(event);
                 } catch (Exception e) {
                     System.err.println("Error handling event " + eventType.getSimpleName() + ": " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
         }
