@@ -15,6 +15,8 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.FileSaveRequestedEvent;
+import org.xast.xide.core.plugin.file.FileModel;
+import org.xast.xide.core.plugin.file.TextFileModel;
 import org.xast.xide.core.plugin.ui.CodePanelView;
 import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.utils.SyntaxStyle;
@@ -76,6 +78,11 @@ public class EditorView extends CodePanelView {
         gutter.setSpacingBetweenLineNumbersAndFoldIndicator(8);
 
         this.add(scrollPane, BorderLayout.CENTER);
+    }
+
+    @Override
+    public FileModel model() {
+        return new TextFileModel(textArea.getText());
     }
 
     public void setSyntaxEditingStyle(String style) {

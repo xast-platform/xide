@@ -2,6 +2,7 @@ package org.xast.xide.ui.components.code_panel;
 
 import java.awt.GridLayout;
 import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Optional;
 
@@ -15,6 +16,8 @@ import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.FileSaveRequestedEvent;
 import org.xast.xide.core.event.TabCloseRequestedEvent;
 import org.xast.xide.core.plugin.file.FilePlugin;
+import org.xast.xide.core.plugin.ui.CodePanelView;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.utils.SyntaxStyle;
 import org.xast.xide.ui.utils.XideStyle;
 
@@ -97,6 +100,7 @@ public class CodePanel extends JPanel implements EventHandler {
         int index = pane.getTabCount() - 1;
         CodePanelTabModel model = new CodePanelTabModel(file.exists(), file);
         pane.setTabComponentAt(index, new CodePanelTab(eventBus, pane, model));
+        pane.setSelectedIndex(index);
     }
 
     public void saveCurrentFile() {
@@ -108,7 +112,36 @@ public class CodePanel extends JPanel implements EventHandler {
         var component = pane.getTabComponentAt(index);
         if (component instanceof CodePanelTab) {
             CodePanelTab tab = (CodePanelTab) component;
-            eventBus.publish(new FileSaveRequestedEvent(tab.getModel().getFile(), true));
+            File file = tab.getModel().getFile();
+
+            Optional<CodePanelView> view = currentView();
+
+            if (view.isEmpty()) {
+                return;
+            }
+
+            try {
+                view.get().model().saveToFile(file);
+            } catch (IOException e) {
+                Debug.error("Cannot save file `" + file.getName() + "`: " + e.getMessage());
+                return;
+            }
+
+            eventBus.publish(new FileSaveRequestedEvent(file, true));
         }
+    }
+
+    public Optional<CodePanelView> currentView() {
+        int index = pane.getSelectedIndex();
+        if (index == -1) {
+            return Optional.empty();
+        }
+
+        var component = pane.getComponentAt(index);
+        if (component instanceof CodePanelView) {
+            return Optional.of((CodePanelView) component);
+        }
+
+        return Optional.empty();
     }
 }

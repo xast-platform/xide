@@ -12,6 +12,9 @@ import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
 import com.pty4j.WinSize;
 
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.EventHandler;
+import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.bottom.BottomPanelView;
 import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.utils.XideStyle;
@@ -20,15 +23,17 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Optional;
 
-public class TerminalView extends BottomPanelView {
+public class TerminalView extends BottomPanelView implements EventHandler {
     private JediTermWidget terminal;
     private PtyProcess process;
 
-    public TerminalView() {
+    public TerminalView(EventBus eventBus) {
         setLayout(new BorderLayout());
 
         try {
@@ -83,10 +88,22 @@ public class TerminalView extends BottomPanelView {
                 }
             });
 
+            setupEventListeners(eventBus);
+
             SwingUtilities.invokeLater(this::updateTerminalSize);
         } catch (IOException e) {
             Debug.error("Cannot initialize terminal: "+e.getMessage());
         }
+    }
+
+    @Override
+    public void setupEventListeners(EventBus eventBus) {
+        eventBus.subscribe(WorkspaceChangedEvent.class, e -> {
+            Optional<File> dir = e.workspace().getDirectory();
+            if (dir.isPresent()) {
+                setTerminalFolder(dir.get());
+            }
+        });
     }
 
     private void updateTerminalSize() {
@@ -99,6 +116,29 @@ public class TerminalView extends BottomPanelView {
                     termSize.getRows()
                 ));
             }
+        }
+    }
+
+    private void setTerminalFolder(File folder) {
+        if (folder == null || !folder.exists() || !folder.isDirectory()) {
+            return;
+        }
+
+        if (process == null || !process.isAlive()) {
+            return;
+        }
+
+        String absolutePath = folder.getAbsolutePath().replace("\\", "\\\\").replace("\"", "\\\"");
+        String command = System.getProperty("os.name").toLowerCase().contains("win")
+            ? "cd /d \"" + absolutePath + "\" && cls\r\n"
+            : "cd \"" + absolutePath + "\" && clear\n";
+
+        try {
+            process.getOutputStream().write(command.getBytes(StandardCharsets.UTF_8));
+            
+            process.getOutputStream().flush();
+        } catch (IOException e) {
+            Debug.error("Cannot set terminal folder: " + e.getMessage());
         }
     }
 

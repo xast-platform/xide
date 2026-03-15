@@ -71,12 +71,11 @@ public class MainFrame implements UIContext {
         frame = new JFrame();
         codePanel = new CodePanel(eventBus, pluginRegistry);
         sideBar = new SideBar();
-        bottomPanel = new BottomPanel();
+        bottomPanel = new BottomPanel(eventBus);
         menuBar = new MenuBar(frame);
         toolBar = new ToolBar();
 
         setupLayout();
-        setupEventListeners();
     }
     
     public void loadPlugins() {
@@ -213,9 +212,5 @@ public class MainFrame implements UIContext {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
-    }
-
-    private void setupEventListeners() {
-
     }
 }
