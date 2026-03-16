@@ -213,18 +213,5 @@ public class MainFrame implements UIContext {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
-
-        new Thread(() -> {
-            for (int i = 0; i < 5; i++) {
-                Debug.info("Info message");
-                Debug.error("Error message");
-
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }).start();
     }
 }
