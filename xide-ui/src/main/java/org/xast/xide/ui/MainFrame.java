@@ -14,7 +14,6 @@ import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
-import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
 import org.xast.xide.ui.components.menu.MenuBar;

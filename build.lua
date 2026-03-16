@@ -51,6 +51,7 @@ local function package(config)
    XBUILD.run("cp xide-standard-plugins/xide-terminal-plugin/target/xide-terminal-plugin-0.1.0.jar dist/plugins/")
    XBUILD.run("cp xide-standard-plugins/xide-settings-plugin/target/xide-settings-plugin-0.1.0.jar dist/plugins/")
    XBUILD.run("cp xide-standard-plugins/xide-rust-file-plugin/target/xide-rust-file-plugin-0.1.0.jar dist/plugins/")
+   XBUILD.run("cp xide-standard-plugins/xide-logs-plugin/target/xide-logs-plugin-0.1.0.jar dist/plugins/")
 
    if config.os_name == OS_NAME.WINDOWS then
       local launcher = XBUILD.open("dist/xide.bat", OPEN_MODE.WRITE)
