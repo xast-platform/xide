@@ -14,6 +14,7 @@ import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
 import org.xast.xide.ui.components.menu.MenuBar;
@@ -168,7 +169,7 @@ public class MainFrame implements UIContext {
 
         // Menu bar
         menuBar.addMenu("File", new MenuItem[] {
-            new SingleItem("New file...", () -> {
+            new SingleItem("New file...", "control N", () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
                 fileChooser.save(frame, file -> {
                     workspace = workspace.withFile(file);
@@ -177,7 +178,7 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Open folder", () -> {
+            new SingleItem("Open folder", "control O", () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
                 fileChooser.open(frame, file -> {
                     workspace = new Workspace.Directory(file);
@@ -185,7 +186,7 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Save", () -> {
+            new SingleItem("Save", "control S", () -> {
                 codePanel.saveCurrentFile();
             }),
         });
@@ -212,5 +213,18 @@ public class MainFrame implements UIContext {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
+
+        new Thread(() -> {
+            for (int i = 0; i < 5; i++) {
+                Debug.info("Info message");
+                Debug.error("Error message");
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        }).start();
     }
 }

@@ -1,11 +1,14 @@
 package org.xast.xide.core.utils;
 
 import java.awt.Color;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 import com.formdev.flatlaf.extras.FlatSVGIcon.ColorFilter;
 
 public enum LucideIcon {
+
     FOLDER_TREE("folder-tree"),
     FILE_SEARCH_CORNER("file-search-corner"),
     COG("cog"),
@@ -18,18 +21,27 @@ public enum LucideIcon {
     SCROLL_TEXT("scroll-text"),
     VARIABLE("variable"),
     X("x"),
-    COFFEE("coffee");
-    // Other icons
+    COFFEE("coffee"),
+    CIRCLE_X("circle-x"),
+    INFO("info");
 
-    private String name;
+    private static final Map<String, FlatSVGIcon> BASE_CACHE = new HashMap<>();
+
+    private final String name;
 
     LucideIcon(String name) {
         this.name = name;
     }
 
+    private FlatSVGIcon base() {
+        return BASE_CACHE.computeIfAbsent(name,
+            n -> new FlatSVGIcon("icons/lucide/" + n + ".svg"));
+    }
+
     public FlatSVGIcon icon(int size, Color tint) {
-        FlatSVGIcon icon = new FlatSVGIcon("icons/lucide/" + name + ".svg", size, size);
-        icon.setColorFilter(new ColorFilter(color -> tint));
+        FlatSVGIcon icon = base().derive(size, size);
+        icon.setColorFilter(new ColorFilter(c -> tint));
+
         return icon;
     }
 }

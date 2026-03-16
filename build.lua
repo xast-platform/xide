@@ -46,9 +46,11 @@ local function package(config)
    
    XBUILD.run("mvn dependency:copy-dependencies -DoutputDirectory=../dist/lib -DincludeScope=runtime -DexcludeGroupIds=org.xast.xide -f xide-app/pom.xml")
    
+   -- Copy plugins
    XBUILD.run("cp xide-standard-plugins/xide-folder-tree-plugin/target/xide-folder-tree-plugin-0.1.0.jar dist/plugins/")
    XBUILD.run("cp xide-standard-plugins/xide-terminal-plugin/target/xide-terminal-plugin-0.1.0.jar dist/plugins/")
    XBUILD.run("cp xide-standard-plugins/xide-settings-plugin/target/xide-settings-plugin-0.1.0.jar dist/plugins/")
+   XBUILD.run("cp xide-standard-plugins/xide-rust-file-plugin/target/xide-rust-file-plugin-0.1.0.jar dist/plugins/")
 
    if config.os_name == OS_NAME.WINDOWS then
       local launcher = XBUILD.open("dist/xide.bat", OPEN_MODE.WRITE)
@@ -56,7 +58,7 @@ local function package(config)
          "@echo off\n" ..
          "set DIR=%~dp0\n" ..
          "set CLASSPATH=%DIR%\\app\\xide.jar;%DIR%\\lib\\*;%DIR%\\plugins\\*\n" ..
-         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Xms64m -Xmx256m -cp \"%CLASSPATH%\" org.xast.xide.app.Main %*"
+         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Dsun.java2d.opengl=true -Xms128m -Xmx1024m -cp \"%CLASSPATH%\" org.xast.xide.app.Main %*"
       )
       launcher:close()
    else
@@ -65,7 +67,7 @@ local function package(config)
          "#!/usr/bin/env bash\n" ..
          "DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" ..
          "CLASSPATH=\"$DIR/app/xide.jar:$DIR/lib/*:$DIR/plugins/*\"\n" ..
-         "\"$DIR/tools/jdk/linux/bin/java\" -Xms64m -Xmx256m -cp \"$CLASSPATH\" org.xast.xide.app.Main \"$@\""
+         "\"$DIR/tools/jdk/linux/bin/java\" -Dsun.java2d.opengl=true -Xms128m -Xmx1024m -cp \"$CLASSPATH\" org.xast.xide.app.Main \"$@\""
       )
       launcher:close()
       XBUILD.run("chmod +x dist/xide.sh")

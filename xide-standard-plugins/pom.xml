@@ -19,9 +19,15 @@
     <name>Xide Standard Plugins</name>
 
     <modules>
+        <!-- Tools -->
         <module>xide-folder-tree-plugin</module>
-        <module>xide-terminal-plugin</module>
         <module>xide-settings-plugin</module>
+
+        <!-- Bottom bar -->
+        <module>xide-terminal-plugin</module>
+        <module>xide-logs-plugin</module>
+        
+        <!-- File plugins -->
         <module>xide-rust-file-plugin</module>
     </modules>
 </project>
