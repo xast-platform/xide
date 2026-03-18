@@ -12,6 +12,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.FileSaveRequestedEvent;
@@ -37,7 +38,7 @@ public class EditorView extends CodePanelView {
         super();
 
         XideStyle style = XideStyle.getCurrent();
-        Font font = style.codeFont().deriveFont(16f);
+        Font font = style.codeFont().deriveFont(18f);
         String content = new String();
 
         if (file.exists() && file.canRead()) {
@@ -50,6 +51,19 @@ public class EditorView extends CodePanelView {
 
         // Create the text area
         textArea = new RSyntaxTextArea(content);
+
+        try {
+            Theme theme = Theme.load(
+                getClass().getResourceAsStream(
+                    "/org/fife/ui/rsyntaxtextarea/themes/dark.xml"
+                )
+            );
+
+            theme.apply(textArea);
+        } catch (IOException e) {
+            Debug.error("Failed to load editor theme: " + e.getMessage());
+        }
+
         textArea.setSyntaxEditingStyle(syntaxStyle.getMimeType());
         textArea.setCodeFoldingEnabled(true);
         textArea.setAntiAliasingEnabled(true);

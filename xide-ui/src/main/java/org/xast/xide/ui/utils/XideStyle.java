@@ -36,8 +36,8 @@ public record XideStyle(
     public static XideStyle defaultStyle() {
         AssetLoader assetLoader = AssetLoader.getInstance();
         FavIcon favicon = assetLoader.loadIcon(DEFAULT_ICON);
-        Font uiFont = assetLoader.loadFont(DEFAULT_UI_FONT, 16f);
-        Font codeFont = assetLoader.loadFont(DEFAULT_CODE_FONT, 14f);
+        Font uiFont = assetLoader.loadFont(DEFAULT_UI_FONT, 16f, false);
+        Font codeFont = assetLoader.loadFont(DEFAULT_CODE_FONT, 14f, true);
         Dimension windowSize = new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT);
 
         return new XideStyle(

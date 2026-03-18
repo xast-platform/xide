@@ -2,8 +2,11 @@ package org.xast.xide.ui.utils;
 
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.font.TextAttribute;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 
@@ -19,12 +22,20 @@ public class AssetLoader {
         return instance;
     }
 
-    public synchronized Font loadFont(String path, float size) {
+    public synchronized Font loadFont(String path, float size, boolean ligatures) {
         try (InputStream is = getClass().getResourceAsStream("/" + path)) {
             if (is == null) {
                 throw new IllegalStateException("Font resource not found: " + path);
             }
-            return Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(size);
+            Font font = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(size);
+
+            if (ligatures) {
+                Map<TextAttribute, Object> attrs = new HashMap<>(font.getAttributes());
+                attrs.put(TextAttribute.LIGATURES, TextAttribute.LIGATURES_ON);
+                font = font.deriveFont(attrs);
+            }
+
+            return font;
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load font: " + path, e);
         }

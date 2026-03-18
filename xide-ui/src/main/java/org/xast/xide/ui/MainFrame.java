@@ -177,7 +177,16 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Open folder", "control O", () -> {
+            new SingleItem("Open file", "control O", () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
+                fileChooser.open(frame, file -> {
+                    workspace = workspace.withFile(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
+                    eventBus.publish(new FileOpenRequestedEvent(file));
+                });
+            }),
+
+            new SingleItem("Open folder", "control shift O", () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
                 fileChooser.open(frame, file -> {
                     workspace = new Workspace.Directory(file);
