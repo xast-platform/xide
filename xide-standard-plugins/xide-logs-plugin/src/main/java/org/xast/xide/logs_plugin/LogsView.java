@@ -63,13 +63,19 @@ public class LogsView extends BottomPanelView {
 
             return label;
         });
-        add(new JScrollPane(list), BorderLayout.CENTER);
+        add(
+            new JScrollPane(list) {{
+                setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x424242)));
+            }}, 
+            BorderLayout.CENTER
+        );
 
         flushTimer = new Timer(FLUSH_INTERVAL_MS, e -> flushPendingLines());
         flushTimer.setRepeats(false);
 
         // Top bar
         Box topBar = Box.createHorizontalBox();
+        topBar.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
         topBar.add(new JCheckBox("StdOut") {{
             setSelected(showStdOut);
             setFont(style.uiFont());

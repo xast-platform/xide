@@ -59,4 +59,16 @@ public record XideStyle(
 
         return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
     }
+
+    public static Color darken(Color color, float fraction) {
+        int r = color.getRed();
+        int g = color.getGreen();
+        int b = color.getBlue();
+
+        r -= (int)(r * fraction);
+        g -= (int)(g * fraction);
+        b -= (int)(b * fraction);
+
+        return new Color(Math.max(r, 0), Math.max(g, 0), Math.max(b, 0));
+    }
 }

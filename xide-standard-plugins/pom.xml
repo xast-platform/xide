@@ -29,5 +29,6 @@
         
         <!-- File plugins -->
         <module>xide-rust-file-plugin</module>
+        <module>xide-scene-editor-plugin</module>
     </modules>
 </project>

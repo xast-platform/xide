@@ -23,7 +23,11 @@ public enum LucideIcon {
     X("x"),
     COFFEE("coffee"),
     CIRCLE_X("circle-x"),
-    INFO("info");
+    INFO("info"),
+    HAMMER("hammer"),
+    PLAY("play"),
+    ELLIPSIS_VERTICAL("ellipsis-vertical"),
+    SUN_MOON("sun-moon");
 
     private static final Map<String, FlatSVGIcon> BASE_CACHE = new HashMap<>();
 

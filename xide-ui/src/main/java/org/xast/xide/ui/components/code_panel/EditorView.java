@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import javax.swing.BorderFactory;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -86,6 +87,8 @@ public class EditorView extends CodePanelView {
         // Scroll pane
         scrollPane = new RTextScrollPane(textArea);
         scrollPane.setLineNumbersEnabled(true);
+        scrollPane.setBackground(bgColor);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
 
         var gutter = scrollPane.getGutter();
         gutter.setLineNumberFont(font);

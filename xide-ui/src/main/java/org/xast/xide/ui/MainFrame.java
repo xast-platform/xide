@@ -14,9 +14,11 @@ import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
+import org.xast.xide.core.utils.LucideIcon;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
 import org.xast.xide.ui.components.menu.MenuBar;
+import org.xast.xide.ui.components.menu.MenuButton;
 import org.xast.xide.ui.components.menu.MenuItem;
 import org.xast.xide.ui.components.menu.SingleItem;
 import org.xast.xide.ui.components.side.SideBar;
@@ -136,7 +138,7 @@ public class MainFrame implements UIContext {
             XideStyle.ICON_WIDTH, 
             XideStyle.ICON_HEIGHT
         ));
-        UIManager.put("TitlePane.titleMargins", new Insets(8,8,8,8));
+        UIManager.put("TitlePane.titleMargins", new Insets(12,12,12,12));
         UIManager.put("TitlePane.font", style.uiFont());
 
         // Tabbed panes
@@ -154,6 +156,9 @@ public class MainFrame implements UIContext {
         UIManager.put("FileChooser.textFont", style.uiFont());
         UIManager.put("FileChooser.buttonFont", style.uiFont());
         UIManager.put("FileChooser.labelFont", style.uiFont());
+
+        // Menu
+        UIManager.put("PopupMenu.borderInsets", new Insets(6, 0, 6, 0));
     }
 
     private void setupLayout() {
@@ -167,6 +172,7 @@ public class MainFrame implements UIContext {
         frame.setLayout(new BorderLayout());
 
         // Menu bar
+        menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x424242)));
         menuBar.addMenu("File", new MenuItem[] {
             new SingleItem("New file...", "control N", () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
@@ -198,18 +204,36 @@ public class MainFrame implements UIContext {
                 codePanel.saveCurrentFile();
             }),
         });
+        menuBar.addMenu("Edit", new MenuItem[] {});
+        menuBar.addMenu("View", new MenuItem[] {});
+        menuBar.addMenu("Plugins", new MenuItem[] {});
+        menuBar.addMenu("Help", new MenuItem[] {});
+        menuBar.add(Box.createGlue());
+
+        // Menu buttons
+        menuBar.add(new MenuButton(LucideIcon.HAMMER, "Build application", () -> {
+
+        }));
+        menuBar.add(new MenuButton(LucideIcon.PLAY, "Run application", MenuButton.PLAY_BUTTON, () -> {
+
+        }));
+        menuBar.add(new MenuButton(LucideIcon.SUN_MOON, "Change theme", () -> {
+
+        }));
+        menuBar.add(new MenuButton(LucideIcon.ELLIPSIS_VERTICAL, "More...", new Insets(8, 2, 8, 2), () -> {
+
+        }));
 
         // Split panes
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, bottomPanel) {{
             setResizeWeight(0.2);
             setContinuousLayout(false);
-            setBorder(null);
+            setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(0x424242)));
         }};
 
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sideBar, verticalSplit) {{
             setResizeWeight(0.75);
             setContinuousLayout(false);
-            setBorder(null);
             setDividerLocation(XideStyle.SIDEBAR_WIDTH);
         }};
 

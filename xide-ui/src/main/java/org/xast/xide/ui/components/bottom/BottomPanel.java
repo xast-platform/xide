@@ -1,7 +1,9 @@
 package org.xast.xide.ui.components.bottom;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 
+import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
@@ -21,6 +23,8 @@ public class BottomPanel extends JPanel {
         this.eventBus = eventBus;
         this.pane = new JTabbedPane();
         this.pane.setFont(style.uiFont());
+
+        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x424242)));
 
         add(pane, BorderLayout.CENTER);
     }
