@@ -15,23 +15,29 @@ local function download_jdk(config)
 
    if config.os_name == OS_NAME.LINUX then
       XBUILD.run("mkdir -p dist/tools/jdk")
-      XBUILD.run("wget -O jdk.tar.gz https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse")
+      XBUILD.run("wget -O jdk.tar.gz https://api.adoptium.net/v3/binary/latest/".. config.jdk_version .."/ga/linux/x64/jdk/hotspot/normal/eclipse")
       XBUILD.run("tar -xf jdk.tar.gz -C dist/tools/jdk")
-      XBUILD.run("mv dist/tools/jdk/jdk-21* " .. jdk_dir)
+      XBUILD.run("mv dist/tools/jdk/jdk-".. config.jdk_version .."* " .. jdk_dir)
       XBUILD.run("rm jdk.tar.gz")
    elseif config.os_name == OS_NAME.WINDOWS then
       XBUILD.run("mkdir dist\\tools\\jdk")
-      XBUILD.run("curl -L -o jdk.zip https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse")
+      XBUILD.run("curl -L -o jdk.zip https://api.adoptium.net/v3/binary/latest/".. config.jdk_version .."/ga/windows/x64/jdk/hotspot/normal/eclipse")
       XBUILD.run("tar -xf jdk.zip -C dist/tools/jdk")
    elseif config.os_name == OS_NAME.MACOS then
       XBUILD.run("mkdir -p dist/tools/jdk")
-      XBUILD.run("wget -O jdk.tar.gz https://api.adoptium.net/v3/binary/latest/21/ga/mac/x64/jdk/hotspot/normal/eclipse")
+      XBUILD.run("wget -O jdk.tar.gz https://api.adoptium.net/v3/binary/latest/".. config.jdk_version .."/ga/mac/x64/jdk/hotspot/normal/eclipse")
       XBUILD.run("tar -xf jdk.tar.gz -C dist/tools/jdk")
    end
 end
 
-local function build_app(_)
-   XBUILD.run("mvn clean install -DskipTests")
+local function build_app(config)
+   if config.os_name == XBUILD.OS_NAME.WINDOWS then
+      XBUILD.run("set JAVA_HOME=%CD%\\dist\\tools\\jdk\\windows && set PATH=%JAVA_HOME%\\bin;%PATH% && mvn clean install -DskipTests")
+   elseif config.os_name == XBUILD.OS_NAME.MACOS then
+      XBUILD.run("export JAVA_HOME=\"$PWD/dist/tools/jdk/macos\" && export PATH=\"$JAVA_HOME/bin:$PATH\" && mvn clean install -DskipTests")
+   else
+      XBUILD.run("export JAVA_HOME=\"$PWD/dist/tools/jdk/linux\" && export PATH=\"$JAVA_HOME/bin:$PATH\" && mvn clean install -DskipTests")
+   end
 end
 
 local function package(config)
@@ -59,7 +65,7 @@ local function package(config)
          "@echo off\n" ..
          "set DIR=%~dp0\n" ..
          "set CLASSPATH=%DIR%\\app\\xide.jar;%DIR%\\lib\\*;%DIR%\\plugins\\*\n" ..
-         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Dsun.java2d.opengl=true -Xms128m -Xmx1024m -cp \"%CLASSPATH%\" org.xast.xide.app.Main %*"
+         "\"%DIR%\\tools\\jdk\\windows\\bin\\java.exe\" -Dsun.java2d.opengl=true --enable-native-access=ALL-UNNAMED -Xms128m -Xmx1024m -cp \"%CLASSPATH%\" org.xast.xide.app.Main %*"
       )
       launcher:close()
    else
@@ -68,7 +74,7 @@ local function package(config)
          "#!/usr/bin/env bash\n" ..
          "DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" ..
          "CLASSPATH=\"$DIR/app/xide.jar:$DIR/lib/*:$DIR/plugins/*\"\n" ..
-         "\"$DIR/tools/jdk/linux/bin/java\" -Dsun.java2d.opengl=true -Xms128m -Xmx1024m -cp \"$CLASSPATH\" org.xast.xide.app.Main \"$@\""
+         "\"$DIR/tools/jdk/linux/bin/java\" -Dsun.java2d.opengl=true --enable-native-access=ALL-UNNAMED -Xms128m -Xmx1024m -cp \"$CLASSPATH\" org.xast.xide.app.Main \"$@\""
       )
       launcher:close()
       XBUILD.run("chmod +x dist/xide.sh")
@@ -78,7 +84,7 @@ end
 XBUILD.build({
    project_name = "xide",
    version = "0.1.0",
-   jdk_version = "21",
+   jdk_version = "25",
    pipeline = {
       download_jdk,
       build_app,
