@@ -5,6 +5,7 @@ import java.io.File;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.plugin.file.FilePlugin;
 import org.xast.xide.core.plugin.ui.CodePanelView;
+import org.xast.xide.core.plugin.ui.StatusLabel;
 
 public class SceneEditorPlugin implements FilePlugin {
     @Override
@@ -13,7 +14,7 @@ public class SceneEditorPlugin implements FilePlugin {
     }
 
     @Override
-    public CodePanelView view(EventBus eventBus, File file) {
+    public CodePanelView view(EventBus eventBus, File file, StatusLabel statusLabel) {
         return new SceneEditorView(eventBus, file);
     }
 }

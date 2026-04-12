@@ -4,6 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Insets;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.File;
 
 import javax.swing.*;
 
@@ -14,9 +17,11 @@ import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.core.utils.LucideIcon;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
+import org.xast.xide.ui.components.code_panel.StatusLabelImpl;
 import org.xast.xide.ui.components.menu.MenuBar;
 import org.xast.xide.ui.components.menu.MenuButton;
 import org.xast.xide.ui.components.menu.MenuItem;
@@ -24,6 +29,7 @@ import org.xast.xide.ui.components.menu.SingleItem;
 import org.xast.xide.ui.components.side.SideBar;
 import org.xast.xide.ui.components.side.ToolBar;
 import org.xast.xide.ui.components.side.ToolButton;
+import org.xast.xide.ui.lsp.LspServerRegistry;
 import org.xast.xide.ui.utils.FileChooser;
 import org.xast.xide.ui.utils.XideStyle;
 import org.xast.xide.ui.utils.FileChooser.FileChooserMode;
@@ -46,11 +52,14 @@ public class MainFrame implements UIContext {
     private BottomPanel bottomPanel;
     @Getter
     private MenuBar menuBar;
+    @Getter
+    private StatusLabelImpl statusLabel;
 
     // Services
     private PluginRegistry pluginRegistry;
     private Workspace workspace;
     private EventBus eventBus;
+    private LspServerRegistry lspRegistry;
 
     static {
         JFrame.setDefaultLookAndFeelDecorated(true);
@@ -67,15 +76,35 @@ public class MainFrame implements UIContext {
         this.workspace = workspace;
         this.pluginRegistry = pluginRegistry;
         this.eventBus = eventBus;
+        this.lspRegistry = new LspServerRegistry(
+            workspace.getDirectory().map(File::toPath)
+        );
 
         setupStyle();
 
         frame = new JFrame();
-        codePanel = new CodePanel(eventBus, pluginRegistry);
+        statusLabel = new StatusLabelImpl();
+        codePanel = new CodePanel(eventBus, pluginRegistry, lspRegistry, statusLabel);
         sideBar = new SideBar();
         bottomPanel = new BottomPanel(eventBus);
         menuBar = new MenuBar(frame);
         toolBar = new ToolBar();
+
+        eventBus.subscribe(WorkspaceChangedEvent.class, event -> {
+            this.workspace = event.workspace();
+            lspRegistry.updateWorkspaceRoot(event.workspace().getDirectory().map(File::toPath));
+        });
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    lspRegistry.close();
+                } catch (RuntimeException ex) {
+                    Debug.error("Failed to stop LSP servers: " + ex.getMessage());
+                }
+            }
+        });
 
         setupLayout();
     }
@@ -209,6 +238,10 @@ public class MainFrame implements UIContext {
         menuBar.addMenu("Plugins", new MenuItem[] {});
         menuBar.addMenu("Help", new MenuItem[] {});
         menuBar.add(Box.createGlue());
+
+        // Menu status label
+        menuBar.add(statusLabel);
+        menuBar.add(Box.createHorizontalStrut(8));
 
         // Menu buttons
         menuBar.add(new MenuButton(LucideIcon.HAMMER, "Build application", () -> {
