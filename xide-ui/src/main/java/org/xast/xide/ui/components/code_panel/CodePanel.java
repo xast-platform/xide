@@ -18,7 +18,6 @@ import org.xast.xide.core.event.TabCloseRequestedEvent;
 import org.xast.xide.core.plugin.file.FilePlugin;
 import org.xast.xide.core.plugin.ui.CodePanelView;
 import org.xast.xide.core.utils.Debug;
-import org.xast.xide.ui.lsp.LspServerRegistry;
 import org.xast.xide.ui.utils.SyntaxStyle;
 import org.xast.xide.ui.utils.XideStyle;
 
@@ -27,15 +26,8 @@ public class CodePanel extends JPanel implements EventHandler {
     private HashSet<File> openedFiles;
     private EventBus eventBus;
     private PluginRegistry pluginRegistry;
-    private LspServerRegistry lspRegistry;
-    private StatusLabelImpl statusLabel;
 
-    public CodePanel(
-        EventBus eventBus,
-        PluginRegistry pluginRegistry,
-        LspServerRegistry lspRegistry,
-        StatusLabelImpl statusLabel
-    ) {
+    public CodePanel(EventBus eventBus, PluginRegistry pluginRegistry) {
         super(new GridLayout());
 
         XideStyle style = XideStyle.getCurrent();
@@ -45,8 +37,6 @@ public class CodePanel extends JPanel implements EventHandler {
         this.pane.setFont(style.uiFont());
         this.openedFiles = new HashSet<>();
         this.pluginRegistry = pluginRegistry;
-        this.lspRegistry = lspRegistry;
-        this.statusLabel = statusLabel;
         
         add(pane);   
         
@@ -76,15 +66,6 @@ public class CodePanel extends JPanel implements EventHandler {
             if (component instanceof CodePanelTab) {
                 String tabTitle = pane.getTitleAt(i);
                 if (tabTitle.equals(file.getName()) || tabTitle.equals(file.getName() + "*")) {
-                    var view = pane.getComponentAt(i);
-                    if (view instanceof CodePanelView) {
-                        try {
-                            ((CodePanelView) view).close();
-                        } catch (Exception e) {
-                            Debug.error("Failed to close editor for `" + file.getName() + "`: " + e.getMessage());
-                        }
-                    }
-
                     pane.remove(i);
                     break;
                 }
@@ -109,15 +90,12 @@ public class CodePanel extends JPanel implements EventHandler {
             pluginRegistry.getFilePlugins().get(ext)
         );
 
-        CodePanelView view = plugin.isPresent()
-            ? plugin.get().view(eventBus, file, statusLabel)
-            : new EditorView(eventBus, file, SyntaxStyle.Plain, statusLabel, 4);
-
-        if (view instanceof EditorView) {
-            ((EditorView) view).configureLsp(lspRegistry.clientFor(file));
-        }
-
-        pane.addTab(file.getName(), view);
+        pane.addTab(
+            file.getName(), 
+            plugin.isPresent()
+                ? plugin.get().view(eventBus, file)
+                : new EditorView(eventBus, file, SyntaxStyle.Plain, 4)
+        );
 
         int index = pane.getTabCount() - 1;
         CodePanelTabModel model = new CodePanelTabModel(file.exists(), file);

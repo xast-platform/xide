@@ -13,20 +13,6 @@
   <name>xide-ui</name>
   <url>http://maven.apache.org</url>
   <dependencies>
-
-    <dependency>
-      <groupId>org.eclipse.lsp4j</groupId>
-      <artifactId>org.eclipse.lsp4j.jsonrpc</artifactId>
-      <version>0.24.0</version>
-    </dependency>
-
-
-    <dependency>
-      <groupId>org.eclipse.lsp4j</groupId>
-      <artifactId>org.eclipse.lsp4j</artifactId>
-      <version>0.24.0</version>
-    </dependency>
-
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

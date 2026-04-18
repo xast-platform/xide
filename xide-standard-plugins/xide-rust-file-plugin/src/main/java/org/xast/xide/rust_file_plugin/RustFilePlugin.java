@@ -7,7 +7,6 @@ import org.fife.ui.rsyntaxtextarea.TokenMakerFactory;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.plugin.file.FilePlugin;
 import org.xast.xide.core.plugin.ui.CodePanelView;
-import org.xast.xide.core.plugin.ui.StatusLabel;
 import org.xast.xide.ui.components.code_panel.EditorView;
 import org.xast.xide.ui.utils.SyntaxStyle;
 
@@ -26,7 +25,7 @@ public class RustFilePlugin implements FilePlugin {
     }
 
     @Override
-    public CodePanelView view(EventBus eventBus, File file, StatusLabel statusLabel) {
-        return new EditorView(eventBus, file, SyntaxStyle.Rust, statusLabel, 4);
+    public CodePanelView view(EventBus eventBus, File file) {
+        return new EditorView(eventBus, file, SyntaxStyle.Rust, 4);
     }
 }
