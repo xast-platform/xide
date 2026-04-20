@@ -864,6 +864,7 @@ public class RustTokenMaker extends AbstractJFlexCTokenMaker {
   /** the textposition at the last accepting state */
   private int zzMarkedPos;
 
+  @SuppressWarnings("unused")
   /** the textposition at the last state to be included in yytext */
   private int zzPushbackPos;
 
@@ -876,19 +877,19 @@ public class RustTokenMaker extends AbstractJFlexCTokenMaker {
   /** endRead marks the last character in the buffer, that has been read
       from input */
   private int zzEndRead;
-
+  @SuppressWarnings("unused")
   /** number of newlines encountered up to the start of the matched text */
   private int yyline;
-
+  @SuppressWarnings("unused")
   /** the number of characters up to the start of the matched text */
   private int yychar;
-
+  @SuppressWarnings("unused")
   /**
    * the number of characters from the last newline up to the start of the 
    * matched text
    */
   private int yycolumn;
-
+  @SuppressWarnings("unused")
   /** 
    * zzAtBOL == true <=> the scanner is currently at the beginning of a line
    */
