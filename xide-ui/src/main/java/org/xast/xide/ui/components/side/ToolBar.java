@@ -25,6 +25,7 @@ public class ToolBar extends JPanel {
             new JPanel(new BorderLayout()) {{
                 add(toolBoxNorth, BorderLayout.NORTH);
                 add(toolBoxSouth, BorderLayout.SOUTH);
+                setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
             }}, 
             BorderLayout.WEST
         );

@@ -17,53 +17,55 @@ public class XideConfig {
     public static final String CONFIG_NAME = "xide.toml";
     public static final String CONFIG_FOLDER = "Xide";
 
+
     public static XideConfig load() {
-        Path path = getConfigPath();
-        File configFile = path.toFile();
-        XideConfig currentConfig;
+        // Path path = getConfigPath();
+        // File configFile = path.toFile();
+        // XideConfig currentConfig;
 
-        if (configFile.exists() && configFile.isFile()) {
-            try {
-                return new XideConfig(new Toml().read(configFile));
-            } catch (IllegalStateException e) {
-                Debug.error("Current config is not a valid TOML: " + e.getMessage());
-                currentConfig = new XideConfig(new Toml());
-            }
-        } else {
-            Debug.warn("Current config doesn't exist. Creating empty one...");
-            currentConfig = new XideConfig(new Toml());
-        }
+        // if (configFile.exists() && configFile.isFile()) {
+        //     try {
+        //         return new XideConfig(new Toml().read(configFile));
+        //     } catch (IllegalStateException e) {
+        //         Debug.error("Current config is not a valid TOML: " + e.getMessage());
+        //         currentConfig = new XideConfig(new Toml());
+        //     }
+        // } else {
+        //     Debug.warn("Current config doesn't exist. Creating empty one...");
+        //     currentConfig = new XideConfig(new Toml());
+        // }
 
-        try {
-            Files.createDirectories(path.getParent());
-            Files.createFile(path);
-        } catch (IOException e) {
-            Debug.warn("Failed to create config file: " + e.getMessage());
-        }
+        // try {
+        //     Files.createDirectories(path.getParent());
+        //     Files.createFile(path);
+        // } catch (IOException e) {
+        //     Debug.warn("Failed to create config file: " + e.getMessage());
+        // }
 
-        try {
-            TomlWriter writer = new TomlWriter();
-            writer.write(currentConfig.table, configFile);
-        } catch (IOException e) {
-            Debug.error("Failed to save config file: " + e.getMessage());
-        }
+        // try {
+        //     TomlWriter writer = new TomlWriter();
+        //     writer.write(currentConfig.table, configFile);
+        // } catch (IOException e) {
+        //     Debug.error("Failed to save config file: " + e.getMessage());
+        // }
 
-        return currentConfig;
+        // return currentConfig;
+        return new XideConfig();
     }
 
-    public void save() {
-        File configFile = getConfigPath().toFile();
-        try {
-            TomlWriter writer = new TomlWriter();
-            writer.write(this.table, configFile);
-        } catch (IOException e) {
-            Debug.error("Failed to save config file: " + e.getMessage());
-        }
-    }
+    // public void save() {
+    //     File configFile = getConfigPath().toFile();
+    //     try {
+    //         TomlWriter writer = new TomlWriter();
+    //         writer.write(this.table, configFile);
+    //     } catch (IOException e) {
+    //         Debug.error("Failed to save config file: " + e.getMessage());
+    //     }
+    // }
 
-    private XideConfig(Toml table) {
-        this.table = table;
-    }
+    // private XideConfig(Toml table) {
+    //     this.table = table;
+    // }
 
     private static Path getConfigPath() {
         String os = System.getProperty("os.name").toLowerCase();

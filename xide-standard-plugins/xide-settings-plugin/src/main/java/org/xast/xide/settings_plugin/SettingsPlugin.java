@@ -31,4 +31,9 @@ public class SettingsPlugin implements ToolPlugin {
     public boolean runAtStartup() {
         return false;
     }
+
+    @Override
+    public int priority() {
+        return 0;
+    }
 }

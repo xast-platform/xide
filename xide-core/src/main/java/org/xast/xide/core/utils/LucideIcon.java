@@ -27,7 +27,9 @@ public enum LucideIcon {
     HAMMER("hammer"),
     PLAY("play"),
     ELLIPSIS_VERTICAL("ellipsis-vertical"),
-    SUN_MOON("sun-moon");
+    SUN_MOON("sun-moon"),
+    BOXES("boxes"),
+    SEARCH("search");
 
     private static final Map<String, FlatSVGIcon> BASE_CACHE = new HashMap<>();
 

@@ -1,4 +1,4 @@
-package org.xast.xide.folder_tree_plugin;
+package org.xast.xide.rc_plugin;
 
 import org.xast.xide.core.plugin.tool.Tool;
 import org.xast.xide.core.plugin.tool.ToolOrientation;
@@ -6,15 +6,15 @@ import org.xast.xide.core.plugin.tool.ToolPlugin;
 import org.xast.xide.core.plugin.ui.UIContext;
 import org.xast.xide.core.utils.LucideIcon;
 
-public class FolderTreePlugin implements ToolPlugin {
+public class ResourceCenterPlugin implements ToolPlugin {
     @Override
     public String toolTip() {
-        return "Project tree";
+        return "Resource Center";
     }
 
     @Override
     public LucideIcon icon() {
-        return LucideIcon.FOLDER_TREE;
+        return LucideIcon.BOXES;
     }
 
     @Override
@@ -24,7 +24,7 @@ public class FolderTreePlugin implements ToolPlugin {
 
     @Override
     public Tool tool(UIContext context) {
-        return new FolderTreeTool(
+        return new ResourceCenterTool(
             context.eventBus(),
             context.sideBar(), 
             context.currentWorkspace()
@@ -33,11 +33,11 @@ public class FolderTreePlugin implements ToolPlugin {
 
     @Override
     public boolean runAtStartup() {
-        return true;
+        return false;
     }
 
     @Override
     public int priority() {
-        return 0;
+        return 2;
     }
 }

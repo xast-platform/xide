@@ -31,13 +31,14 @@ public class FolderTreeView extends SideBarView {
         if (fileNode.isPresent()) {
             model = Optional.of(new FolderTreeModel(fileNode.get()));
             tree = Optional.of(new FolderTree(model.get()));
+
             currentView = tree.get();
         } else {
             currentView = new CenteredLabel("No workspace opened", 100, 18f);
         }
 
         JScrollPane scrollPane = new JScrollPane(currentView);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(16, 12, 8, 8));
         add(scrollPane);
     }
 

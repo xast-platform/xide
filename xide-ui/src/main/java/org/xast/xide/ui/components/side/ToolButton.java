@@ -20,7 +20,7 @@ public class ToolButton extends JButton {
         
         setToolTipText(tooltip);
         setMargin(new Insets(8,8,8,8));
-        setIcon(icon.icon(28, Color.WHITE));
+        setIcon(icon.icon(24, Color.WHITE));
         addActionListener(e -> {
             tool.show();
         });

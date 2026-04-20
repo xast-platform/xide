@@ -47,7 +47,7 @@ public class LogsView extends BottomPanelView {
         list.setCellRenderer((listComp, value, index, isSelected, cellHasFocus) -> {
             JLabel label = new JLabel(stripAnsi(value.text()));
 
-            label.setFont(style.uiFont().deriveFont(16f));
+            label.setFont(style.uiFont());
             label.setBackground(bgColor);
             label.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
             label.setIcon(value.isError() ? stdErrIcon : stdOutIcon);

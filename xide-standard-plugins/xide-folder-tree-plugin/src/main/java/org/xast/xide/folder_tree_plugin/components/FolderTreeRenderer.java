@@ -15,6 +15,7 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
     private static final Color ICON_COLOR = new Color(200, 200, 200);
 
     private boolean selected;
+    private boolean hovered;
 
     @Override
     public Component getTreeCellRendererComponent(
@@ -29,11 +30,18 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
         super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
 
         this.selected = selected;
+        this.hovered = 
+            tree.getRowForPath(tree.getPathForRow(row)) != -1
+            && row == ((FolderTree) tree).getHoveredRow();
 
         FileNode node = (FileNode) value;
         File file = node.file();
 
-        setText(node.toString());
+        if (node.isRoot()) {
+            setText(node.toString());
+        } else {
+            setText(" "+node.toString());
+        }
 
         LucideIcon iconType = FileIconProvider.getIconForFile(file, ICON_SIZE);
         if (!node.isRoot()) {
@@ -52,7 +60,10 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         if (selected) {
-            g2.setColor(new Color(60, 60, 60)); // selection color
+            g2.setColor(new Color(60, 60, 60));
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+        } else if (hovered) {
+            g2.setColor(new Color(45, 45, 45));
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
         }
 

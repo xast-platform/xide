@@ -21,6 +21,8 @@
     <modules>
         <!-- Tools -->
         <module>xide-folder-tree-plugin</module>
+        <module>xide-search-plugin</module>
+        <module>xide-rc-plugin</module>
         <module>xide-settings-plugin</module>
 
         <!-- Bottom bar -->

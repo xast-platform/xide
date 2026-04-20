@@ -13,4 +13,6 @@ public interface ToolPlugin {
     Tool tool(UIContext context);
 
     boolean runAtStartup();
+
+    int priority();
 }

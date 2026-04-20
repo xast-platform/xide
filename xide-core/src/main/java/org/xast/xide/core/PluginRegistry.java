@@ -22,6 +22,7 @@ public class PluginRegistry {
     
     public void registerToolPlugin(ToolPlugin plugin) {
         toolPlugins.add(plugin);
+        toolPlugins.sort((a, b) -> Integer.compare(a.priority(), b.priority()));
     }
     
     public void registerBottomPanelPlugin(BottomPanelPlugin plugin) {
