@@ -10,6 +10,7 @@ import java.awt.Dimension;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.plugin.file.FileModel;
 import org.xast.xide.core.plugin.ui.CodePanelView;
+import org.xast.xide.ui.components.CenteredLabel;
 
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLProfile;
@@ -18,9 +19,7 @@ import com.jogamp.opengl.awt.GLJPanel;
 public class SceneEditorView extends CodePanelView {
     public static final String CLI_APP = "xastge-scene";
 
-    @SuppressWarnings("unused")
     private EventBus eventBus;
-    @SuppressWarnings("unused")
     private File file;
 
     public SceneEditorView(EventBus eventBus, File file) {
@@ -29,10 +28,10 @@ public class SceneEditorView extends CodePanelView {
 
         setLayout(new BorderLayout());
 
-        // if (!isAppInstalled()) {
-        //     add(new CenteredLabel("CLI app <b>"+CLI_APP+ "</b> is not installed.", 200, 18f));
-        //     return;
-        // }
+        if (!isAppInstalled()) {
+            add(new CenteredLabel("CLI app <b>"+CLI_APP+ "</b> is not installed.", 200, 18f));
+            return;
+        }
         
         add(createGLView(), BorderLayout.CENTER);
     }

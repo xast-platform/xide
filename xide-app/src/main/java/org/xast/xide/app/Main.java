@@ -4,6 +4,7 @@ import javax.swing.SwingUtilities;
 
 import org.xast.xide.core.PluginManager;
 import org.xast.xide.core.Workspace;
+import org.xast.xide.core.config.XideConfig;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.MainFrame;
@@ -23,11 +24,13 @@ public class Main {
                 System.exit(-1);
             }
 
+            XideConfig config = XideConfig.load();
             EventBus eventBus = new EventBus();
             MainFrame frame = new MainFrame(
                 workspace, 
                 pm.getRegistry(),
-                eventBus
+                eventBus,
+                config
             );
             
             frame.loadPlugins();

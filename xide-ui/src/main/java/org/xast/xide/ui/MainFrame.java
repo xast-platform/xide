@@ -9,6 +9,7 @@ import javax.swing.*;
 
 import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
+import org.xast.xide.core.config.XideConfig;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
@@ -51,6 +52,7 @@ public class MainFrame implements UIContext {
     private PluginRegistry pluginRegistry;
     private Workspace workspace;
     private EventBus eventBus;
+    private XideConfig config;
 
     static {
         JFrame.setDefaultLookAndFeelDecorated(true);
@@ -62,7 +64,8 @@ public class MainFrame implements UIContext {
     public MainFrame(
         Workspace workspace,
         PluginRegistry pluginRegistry,
-        EventBus eventBus
+        EventBus eventBus,
+        XideConfig config
     ) {
         this.workspace = workspace;
         this.pluginRegistry = pluginRegistry;

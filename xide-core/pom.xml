@@ -13,6 +13,13 @@
   <name>xide-core</name>
   <url>http://maven.apache.org</url>
   <dependencies>
+    <!-- TOML4J -->
+    <dependency>
+      <groupId>com.moandjiezana.toml</groupId>
+      <artifactId>toml4j</artifactId>
+      <version>0.7.2</version>
+    </dependency>
+
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
