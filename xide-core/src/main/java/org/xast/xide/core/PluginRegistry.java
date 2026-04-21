@@ -30,12 +30,15 @@ public class PluginRegistry {
     }
 
     public void registerFilePlugin(FilePlugin plugin) {
-        String ext = plugin.fileExtension();
-        if (filePlugins.containsKey(ext)) {
-            Debug.error("File plugin for extension `" + ext + "` already registered");
-            return;
-        }
+        String[] exts = plugin.fileExtensions();
+        
+        for (String ext : exts) {
+            if (filePlugins.containsKey(ext)) {
+                Debug.error("File plugin for extension `" + ext + "` already registered");
+                continue;
+            }
 
-        filePlugins.put(ext, plugin);
+            filePlugins.put(ext, plugin);
+        }
     }
 }

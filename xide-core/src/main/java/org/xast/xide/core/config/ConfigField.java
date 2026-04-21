@@ -5,11 +5,16 @@ import lombok.Getter;
 public class ConfigField {
     @Getter
     private final String description;
+    @Getter
     private ConfigValue value;
 
     public ConfigField(String description, ConfigValue value) {
         this.description = description;
         this.value = value;
+    }
+
+    public <T extends ConfigValue> T get() {
+        return null;
     }
 
     public void setValue(ConfigValue value) throws SetConfigFieldException {

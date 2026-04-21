@@ -8,8 +8,8 @@ import org.xast.xide.core.plugin.ui.CodePanelView;
 
 public class SceneEditorPlugin implements FilePlugin {
     @Override
-    public String fileExtension() {
-        return "xsc";
+    public String[] fileExtensions() {
+        return new String[] { "xsc" };
     }
 
     @Override

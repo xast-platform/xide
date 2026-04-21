@@ -133,6 +133,11 @@ public class MainFrame implements UIContext {
         return eventBus;
     }
 
+    @Override
+    public XideConfig config() {
+        return config;
+    }
+
     private void setupStyle() {
         XideStyle style = XideStyle.getCurrent();
 

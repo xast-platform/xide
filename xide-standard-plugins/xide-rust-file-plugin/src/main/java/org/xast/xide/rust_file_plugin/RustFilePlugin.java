@@ -20,8 +20,8 @@ public class RustFilePlugin implements FilePlugin {
     }
 
     @Override
-    public String fileExtension() {
-        return "rs";
+    public String[] fileExtensions() {
+        return new String[] { "rs" };
     }
 
     @Override
