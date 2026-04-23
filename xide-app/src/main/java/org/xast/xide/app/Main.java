@@ -24,8 +24,8 @@ public class Main {
                 System.exit(-1);
             }
 
-            XideConfig config = XideConfig.load();
             EventBus eventBus = new EventBus();
+            XideConfig config = XideConfig.load(eventBus);
             MainFrame frame = new MainFrame(
                 workspace, 
                 pm.getRegistry(),

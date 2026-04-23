@@ -21,9 +21,9 @@ import org.xast.xide.core.utils.Debug;
 import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
-import lombok.val;
 
 public class XideConfig {
     public static final Toml EMPTY_CONFIG = new Toml();
@@ -43,38 +43,70 @@ public class XideConfig {
     }
 
     public static XideConfig load(EventBus eventBus) {
-        // Path path = getConfigPath();
-        // File configFile = path.toFile();
-        // XideConfig currentConfig;
+        Path path = getConfigPath();
+        File configFile = path.toFile();
+        XideConfig currentConfig;
 
-        // if (configFile.exists() && configFile.isFile()) {
-        //     try {
-        //         return new XideConfig(new Toml().read(configFile));
-        //     } catch (IllegalStateException e) {
-        //         Debug.error("Current config is not a valid TOML: " + e.getMessage());
-        //         currentConfig = new XideConfig(new Toml());
-        //     }
-        // } else {
-        //     Debug.warn("Current config doesn't exist. Creating empty one...");
-        //     currentConfig = new XideConfig(new Toml());
-        // }
+        if (configFile.exists() && configFile.isFile()) {
+            try {
+                return XideConfig.fromToml(eventBus, new Toml().read(configFile));
+            } catch (IllegalStateException e) {
+                Debug.error("Current config is not a valid TOML: " + e.getMessage());
+                currentConfig = XideConfig.fromToml(eventBus, new Toml());
+            }
+        } else {
+            Debug.warn("Current config doesn't exist. Creating empty one...");
+            currentConfig = XideConfig.fromToml(eventBus, new Toml());
+        }
 
-        // try {
-        //     Files.createDirectories(path.getParent());
-        //     Files.createFile(path);
-        // } catch (IOException e) {
-        //     Debug.warn("Failed to create config file: " + e.getMessage());
-        // }
+        try {
+            Files.createDirectories(path.getParent());
+            Files.createFile(path);
+        } catch (IOException e) {
+            Debug.warn("Failed to create config file: " + e.getMessage());
+        }
 
-        // try {
-        //     TomlWriter writer = new TomlWriter();
-        //     writer.write(currentConfig.table, configFile);
-        // } catch (IOException e) {
-        //     Debug.error("Failed to save config file: " + e.getMessage());
-        // }
+        try {
+            TomlWriter writer = new TomlWriter();
+            writer.write(XideConfigDto.fromSolid(currentConfig), configFile);
+        } catch (IOException e) {
+            Debug.error("Failed to save config file: " + e.getMessage());
+        }
 
-        // return currentConfig;
-        return new XideConfig(eventBus, new HashMap<>());
+        return currentConfig;
+    }
+
+    public void save() {
+        File configFile = getConfigPath().toFile();
+        try {
+            TomlWriter writer = new TomlWriter();
+            writer.write(XideConfigDto.fromSolid(this), configFile);
+        } catch (IOException e) {
+            Debug.error("Failed to save config file: " + e.getMessage());
+        }
+    }
+
+    public void addOrUpdateField(
+        String sectionName, 
+        String recordName, 
+        String description, 
+        ConfigValue value
+    ) {
+        fields
+            .computeIfAbsent(sectionName, k -> new HashMap<>())
+            .put(recordName, new ConfigField(eventBus, description, value));
+
+        save();
+    }
+
+    public void debug() {
+        Debug.info("Current config:");
+        fields.forEach((sectionName, section) -> {
+            Debug.info("[" + sectionName + "]");
+            section.forEach((recordName, record) -> {
+                Debug.info(recordName + " = " + record.getValue().toString() + " # " + record.getDescription());
+            });
+        });
     }
 
     public boolean getBoolean(String sectionName, String recordName, boolean defaultVal) {
@@ -192,19 +224,11 @@ public class XideConfig {
         }
     }
 
-    // public void save() {
-    //     File configFile = getConfigPath().toFile();
-    //     try {
-    //         TomlWriter writer = new TomlWriter();
-    //         writer.write(this.table, configFile);
-    //     } catch (IOException e) {
-    //         Debug.error("Failed to save config file: " + e.getMessage());
-    //     }
-    // }
-
-    // private XideConfig(Toml table) {
-    //     this.table = table;
-    // }
+    public static XideConfig fromToml(EventBus eventBus, Toml toml) {
+        return toml
+            .to(XideConfigDto.class)
+            .toSolid(eventBus);
+    }
 
     private static Path getConfigPath() {
         String os = System.getProperty("os.name").toLowerCase();
@@ -228,9 +252,10 @@ public class XideConfig {
         return Path.of(home, ".config", CONFIG_FOLDER, CONFIG_NAME);
     }
 
+    @AllArgsConstructor
     @Data
     private static class XideConfigDto {
-        private Map<String, Map<String, ConfigFieldDto>> config; 
+        private Map<String, Map<String, ConfigFieldDto>> config = new HashMap<>(); 
 
         public XideConfig toSolid(EventBus eventBus) {
             var fields = config
@@ -243,7 +268,7 @@ public class XideConfig {
                         .stream()
                         .map(fieldEntry ->
                             fieldEntry.getValue()
-                                .toSolid()
+                                .toSolid(eventBus)
                                 .map(solidField -> Map.entry(fieldEntry.getKey(), solidField))
                         )
                         .flatMap(Optional::stream)
@@ -252,14 +277,34 @@ public class XideConfig {
 
             return new XideConfig(eventBus, fields);
         }
+
+        public static XideConfigDto fromSolid(XideConfig config) {
+            var dtoConfig = config.getFields()
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    sectionEntry -> sectionEntry.getValue()
+                        .entrySet()
+                        .stream()
+                        .map(fieldEntry -> Map.entry(
+                            fieldEntry.getKey(),
+                            ConfigFieldDto.fromSolid(fieldEntry.getValue())
+                        ))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                ));
+
+            return new XideConfigDto(dtoConfig);
+        }
     }
 
+    @AllArgsConstructor
     @Data
     private static class ConfigFieldDto {
         private String description;
         private Object value;
 
-        public Optional<ConfigField> toSolid() {
+        public Optional<ConfigField> toSolid(EventBus eventBus) {
             if (this.value == null) {
                 Debug.warn("Config field value is null");
                 return Optional.empty();
@@ -288,9 +333,23 @@ public class XideConfig {
             }
 
             return Optional.of(new ConfigField(
+                eventBus,
                 this.description,
                 value.get()
             ));
+        }
+
+        public static ConfigFieldDto fromSolid(ConfigField configField) {
+            String description = configField.getDescription();
+            Object value = switch (configField.getValue()) {
+                case StringValue s -> s.value();
+                case BooleanValue b -> b.value();
+                case IntValue i -> i.value();
+                case FloatValue f -> f.value();
+                case StringArrayValue arr -> List.<String>of(arr.value());
+            };
+
+            return new ConfigFieldDto(description, value);
         }
     }
 }

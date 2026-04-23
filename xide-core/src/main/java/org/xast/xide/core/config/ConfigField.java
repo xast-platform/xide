@@ -1,5 +1,8 @@
 package org.xast.xide.core.config;
 
+import org.xast.xide.core.event.ConfigChangedEvent;
+import org.xast.xide.core.event.EventBus;
+
 import lombok.Getter;
 
 public class ConfigField {
@@ -7,14 +10,12 @@ public class ConfigField {
     private final String description;
     @Getter
     private ConfigValue value;
+    private EventBus eventBus;
 
-    public ConfigField(String description, ConfigValue value) {
+    public ConfigField(EventBus eventBus, String description, ConfigValue value) {
         this.description = description;
         this.value = value;
-    }
-
-    public <T extends ConfigValue> T get() {
-        return null;
+        this.eventBus = eventBus;
     }
 
     public void setValue(ConfigValue value) throws SetConfigFieldException {
@@ -23,5 +24,6 @@ public class ConfigField {
         }
 
         this.value = value;
+        this.eventBus.publish(new ConfigChangedEvent());
     }
 }
