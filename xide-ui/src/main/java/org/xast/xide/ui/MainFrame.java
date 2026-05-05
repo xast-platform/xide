@@ -195,53 +195,7 @@ public class MainFrame implements UIContext, EventHandler {
 
         // Menu bar
         menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x424242)));
-        menuBar.addMenu("File", new MenuItem[] {
-            new SingleItem("New file...", Optional.of("control N"), () -> {
-                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
-                fileChooser.save(frame, file -> {
-                    workspace = workspace.withFile(file);
-                    eventBus.publish(new WorkspaceChangedEvent(workspace));
-                    eventBus.publish(new FileOpenRequestedEvent(file));
-                });
-            }),
-
-            new SeparatorItem(),
-
-            new SingleItem("Open file", Optional.of("control O"), () -> {
-                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
-                fileChooser.open(frame, file -> {
-                    workspace = workspace.withFile(file);
-                    eventBus.publish(new WorkspaceChangedEvent(workspace));
-                    eventBus.publish(new FileOpenRequestedEvent(file));
-                });
-            }),
-
-            new SingleItem("Open folder", Optional.of("control shift O"), () -> {
-                FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
-                fileChooser.open(frame, file -> {
-                    workspace = new Workspace.Directory(file);
-                    eventBus.publish(new WorkspaceChangedEvent(workspace));
-                });
-            }),
-
-            openRecentMenu,
-
-            new SeparatorItem(),
-
-            new SingleItem("Save", Optional.of("control S"), () -> {
-                codePanel.saveCurrentFile();
-            }),
-
-            new SingleItem("Save all", Optional.of("control shift S"), () -> {
-                codePanel.saveAllFiles();
-            }),
-
-            new SeparatorItem(),
-
-            new SingleItem("Exit", Optional.of("control Q"), () -> {
-                frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-            }),
-        });
+        menuBar.addMenu("File", fileMenu());
         menuBar.addMenu("Edit", new MenuItem[] {});
         menuBar.addMenu("View", new MenuItem[] {});
         menuBar.addMenu("Plugins", new MenuItem[] {});
@@ -289,6 +243,56 @@ public class MainFrame implements UIContext, EventHandler {
         eventBus.subscribe(WorkspaceChangedEvent.class, e -> {
             updateRecentItems();
         });
+    }
+
+    private MenuItem[] fileMenu() {
+        return new MenuItem[] {
+            new SingleItem("New file...", Optional.of("control N"), () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
+                fileChooser.save(frame, file -> {
+                    workspace = workspace.withFile(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
+                    eventBus.publish(new FileOpenRequestedEvent(file));
+                });
+            }),
+
+            new SeparatorItem(),
+
+            new SingleItem("Open file", Optional.of("control O"), () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
+                fileChooser.open(frame, file -> {
+                    workspace = workspace.withFile(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
+                    eventBus.publish(new FileOpenRequestedEvent(file));
+                });
+            }),
+
+            new SingleItem("Open folder", Optional.of("control shift O"), () -> {
+                FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
+                fileChooser.open(frame, file -> {
+                    workspace = new Workspace.Directory(file);
+                    eventBus.publish(new WorkspaceChangedEvent(workspace));
+                });
+            }),
+
+            openRecentMenu,
+
+            new SeparatorItem(),
+
+            new SingleItem("Save", Optional.of("control S"), () -> {
+                codePanel.saveCurrentFile();
+            }),
+
+            new SingleItem("Save all", Optional.of("control shift S"), () -> {
+                codePanel.saveAllFiles();
+            }),
+
+            new SeparatorItem(),
+
+            new SingleItem("Exit", Optional.of("control Q"), () -> {
+                frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+            }),
+        };
     }
 
     private void updateRecentItems() {
