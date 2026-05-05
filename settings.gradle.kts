@@ -5,8 +5,10 @@
  */
 
 pluginManagement {
-    // Include 'plugins build' to define convention plugins.
     includeBuild("build-logic")
+    plugins {
+        kotlin("jvm") version "2.3.0"
+    }
 }
 
 rootProject.name = "xide"
