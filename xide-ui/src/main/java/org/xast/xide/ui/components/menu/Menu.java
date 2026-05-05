@@ -19,6 +19,14 @@ public class Menu implements MenuItem {
         }
     }
 
+    public void setItems(MenuItem[] items) {
+        component.removeAll();
+
+        for (MenuItem item : items) {
+            component.add(item.component());
+        }
+    }
+
     @Override
     public JComponent component() {
         return component;

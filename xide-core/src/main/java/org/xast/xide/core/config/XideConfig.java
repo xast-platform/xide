@@ -92,11 +92,13 @@ public class XideConfig {
         String description, 
         ConfigValue value
     ) {
-        fields
-            .computeIfAbsent(sectionName, k -> new HashMap<>())
-            .put(recordName, new ConfigField(eventBus, description, value));
+        throw new IllegalStateException("Return error if already exists");
 
-        save();
+        // fields
+        //     .computeIfAbsent(sectionName, k -> new HashMap<>())
+        //     .put(recordName, new ConfigField(eventBus, description, value));
+
+        // save();
     }
 
     public void debug() {

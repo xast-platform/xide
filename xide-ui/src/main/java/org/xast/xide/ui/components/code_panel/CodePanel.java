@@ -131,6 +131,35 @@ public class CodePanel extends JPanel implements EventHandler {
         }
     }
 
+    public void saveAllFiles() {
+        for (int i = 0; i < pane.getTabCount(); i++) {
+            var component = pane.getTabComponentAt(i);
+            if (component instanceof CodePanelTab) {
+                CodePanelTab tab = (CodePanelTab) component;
+                File file = tab.getModel().getFile();
+
+                Optional<CodePanelView> view = Optional.empty();
+                var tabComponent = pane.getComponentAt(i);
+                if (tabComponent instanceof CodePanelView) {
+                    view = Optional.of((CodePanelView) tabComponent);
+                }
+
+                if (view.isEmpty()) {
+                    continue;
+                }
+
+                try {
+                    view.get().model().saveToFile(file);
+                } catch (IOException e) {
+                    Debug.error("Cannot save file `" + file.getName() + "`: " + e.getMessage());
+                    continue;
+                }
+
+                eventBus.publish(new FileSaveRequestedEvent(file, true));
+            }
+        }
+    }
+
     public Optional<CodePanelView> currentView() {
         int index = pane.getSelectedIndex();
         if (index == -1) {

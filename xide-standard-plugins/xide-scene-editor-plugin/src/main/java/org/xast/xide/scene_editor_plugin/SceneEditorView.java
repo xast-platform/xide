@@ -37,7 +37,7 @@ public class SceneEditorView extends CodePanelView {
     }
 
     private Component createGLView() {
-        GLProfile profile = GLProfile.get(GLProfile.GL2);
+        GLProfile profile = GLProfile.get(GLProfile.GL4);
         GLCapabilities caps = new GLCapabilities(profile);
 
         GLJPanel panel = new GLJPanel(caps);

@@ -1,8 +1,12 @@
 package org.xast.xide.ui.components.menu;
 
+import java.awt.Dimension;
+
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JSeparator;
+import javax.swing.SwingConstants;
 
 import org.xast.xide.ui.utils.XideStyle;
 
@@ -20,5 +24,11 @@ public class MenuBar extends JMenuBar {
                 add(item.component());
             }
         }});
+    }
+
+    public void addBarSeparator() {
+        JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
+        separator.setPreferredSize(new Dimension(8, 24));
+        add(separator);
     }
 }

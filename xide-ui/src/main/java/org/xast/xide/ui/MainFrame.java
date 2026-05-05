@@ -4,6 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Insets;
+import java.awt.event.WindowEvent;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import javax.swing.*;
 
@@ -11,16 +14,20 @@ import org.xast.xide.core.PluginRegistry;
 import org.xast.xide.core.Workspace;
 import org.xast.xide.core.config.XideConfig;
 import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.EventHandler;
 import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
 import org.xast.xide.core.utils.LucideIcon;
+import org.xast.xide.core.utils.RecentWorkspaces;
 import org.xast.xide.ui.components.bottom.BottomPanel;
 import org.xast.xide.ui.components.code_panel.CodePanel;
+import org.xast.xide.ui.components.menu.Menu;
 import org.xast.xide.ui.components.menu.MenuBar;
 import org.xast.xide.ui.components.menu.MenuButton;
 import org.xast.xide.ui.components.menu.MenuItem;
+import org.xast.xide.ui.components.menu.SeparatorItem;
 import org.xast.xide.ui.components.menu.SingleItem;
 import org.xast.xide.ui.components.side.SideBar;
 import org.xast.xide.ui.components.side.ToolBar;
@@ -33,7 +40,7 @@ import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDark
 
 import lombok.Getter;
 
-public class MainFrame implements UIContext {
+public class MainFrame implements UIContext, EventHandler {
     private JFrame frame;
 
     // Top-level panels
@@ -47,12 +54,15 @@ public class MainFrame implements UIContext {
     private BottomPanel bottomPanel;
     @Getter
     private MenuBar menuBar;
+    @Getter
+    private Menu openRecentMenu;
 
     // Services
     private PluginRegistry pluginRegistry;
     private Workspace workspace;
     private EventBus eventBus;
     private XideConfig config;
+    private RecentWorkspaces recentWorkspaces;
 
     static {
         JFrame.setDefaultLookAndFeelDecorated(true);
@@ -70,6 +80,7 @@ public class MainFrame implements UIContext {
         this.workspace = workspace;
         this.pluginRegistry = pluginRegistry;
         this.eventBus = eventBus;
+        this.recentWorkspaces = new RecentWorkspaces(eventBus);
 
         setupStyle();
 
@@ -79,8 +90,11 @@ public class MainFrame implements UIContext {
         bottomPanel = new BottomPanel(eventBus);
         menuBar = new MenuBar(frame);
         toolBar = new ToolBar();
+        openRecentMenu = new Menu("Open recent...", new MenuItem[] {});
 
+        updateRecentItems();
         setupLayout();
+        setupEventListeners(eventBus);
     }
     
     public void loadPlugins() {
@@ -182,7 +196,7 @@ public class MainFrame implements UIContext {
         // Menu bar
         menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x424242)));
         menuBar.addMenu("File", new MenuItem[] {
-            new SingleItem("New file...", "control N", () -> {
+            new SingleItem("New file...", Optional.of("control N"), () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
                 fileChooser.save(frame, file -> {
                     workspace = workspace.withFile(file);
@@ -191,7 +205,9 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Open file", "control O", () -> {
+            new SeparatorItem(),
+
+            new SingleItem("Open file", Optional.of("control O"), () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.FILES);
                 fileChooser.open(frame, file -> {
                     workspace = workspace.withFile(file);
@@ -200,7 +216,7 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Open folder", "control shift O", () -> {
+            new SingleItem("Open folder", Optional.of("control shift O"), () -> {
                 FileChooser fileChooser = new FileChooser(FileChooserMode.DIRS);
                 fileChooser.open(frame, file -> {
                     workspace = new Workspace.Directory(file);
@@ -208,8 +224,22 @@ public class MainFrame implements UIContext {
                 });
             }),
 
-            new SingleItem("Save", "control S", () -> {
+            openRecentMenu,
+
+            new SeparatorItem(),
+
+            new SingleItem("Save", Optional.of("control S"), () -> {
                 codePanel.saveCurrentFile();
+            }),
+
+            new SingleItem("Save all", Optional.of("control shift S"), () -> {
+                codePanel.saveAllFiles();
+            }),
+
+            new SeparatorItem(),
+
+            new SingleItem("Exit", Optional.of("control Q"), () -> {
+                frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
             }),
         });
         menuBar.addMenu("Edit", new MenuItem[] {});
@@ -253,5 +283,36 @@ public class MainFrame implements UIContext {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
+    }
+
+    public void setupEventListeners(EventBus eventBus) {
+        eventBus.subscribe(WorkspaceChangedEvent.class, e -> {
+            updateRecentItems();
+        });
+    }
+
+    private void updateRecentItems() {
+        openRecentMenu.setItems(
+            Stream.concat(
+                recentWorkspaces.getWorkspaces()
+                    .stream()
+                    .map(ws -> ws.getPath().map(path -> new SingleItem(
+                        path.toString(),
+                        Optional.empty(),
+                        () -> eventBus.publish(new WorkspaceChangedEvent(ws))
+                    )))
+                    .flatMap(Optional::stream),
+
+                recentWorkspaces.getWorkspaces().isEmpty()
+                    ? Stream.empty()
+                    : Stream.of(
+                        new SeparatorItem(),
+                        new SingleItem("Clear recent workspaces...", Optional.empty(), () -> {
+                            recentWorkspaces.clearWorkspaces();
+                            updateRecentItems();
+                        })
+                    )
+            ).toArray(MenuItem[]::new)
+        );
     }
 }
