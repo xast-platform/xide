@@ -1,5 +1,14 @@
 package org.xast.xide.logs_plugin
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.swing.Swing
+import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
+
 import org.xast.xide.core.plugin.bottom.BottomPanelView
 import org.xast.xide.core.utils.LucideIcon
 import org.xast.xide.ui.utils.XideStyle
@@ -7,29 +16,25 @@ import org.xast.xide.ui.utils.XideStyle
 import java.awt.*
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
-import java.util.ArrayList
-import java.util.concurrent.atomic.AtomicBoolean
 
 import javax.swing.*
 
 class LogsView : BottomPanelView() {
     companion object {
-        const val MAX_LINES: Int = 1000
-        const val FLUSH_INTERVAL_MS: Int = 500
+        const val MAX_LINES = 1000
+        const val FLUSH_INTERVAL_MS = 500
+        private val ANSI_REGEX = Regex("\u001B\\[[\\d]*m")
     }
     
-    private var listModel: DefaultListModel<LogLine>
-    private var list: JList<LogLine>
-    private val allLines: List<LogLine> = mutableListOf()
-    private val pendingLines: List<LogLine> = mutableListOf()
-    private val pendingLock: Any = Any()
-    private val flushRequestPosted: AtomicBoolean = AtomicBoolean(false)
-    private var flushTimer: Timer
-    private var stdOutIcon: Icon
-    private var stdErrIcon: Icon
-    private var flushScheduled: Boolean = false
-    private var showStdOut: Boolean = true
-    private var showStdErr: Boolean = true
+    private val listModel = DefaultListModel<LogLine>()
+    private val list = JList(listModel)
+    private val allLines = mutableListOf<LogLine>()
+    private val scope = CoroutineScope(Dispatchers.Default)
+    private val channel = Channel<LogLine>(Channel.UNLIMITED)
+    private val stdOutIcon: Icon
+    private val stdErrIcon: Icon
+    private var showStdOut = true
+    private var showStdErr = true
 
     init {
         layout = BorderLayout()
@@ -42,11 +47,9 @@ class LogsView : BottomPanelView() {
         stdErrIcon = LucideIcon.CIRCLE_X.icon(16, Color.RED)
 
         // List
-        listModel = DefaultListModel()
-        list = JList(listModel)
         list.background = bgColor
         list.setCellRenderer { listComp, value, index, isSelected, cellHasFocus ->
-            val label = JLabel(stripAnsi(value.text))
+            val label = JLabel(value.text.stripAnsi())
 
             label.font = style.uiFont()
             label.background = bgColor
@@ -72,16 +75,13 @@ class LogsView : BottomPanelView() {
             BorderLayout.CENTER
         )
 
-        flushTimer = Timer(FLUSH_INTERVAL_MS) { e -> flushPendingLines() }
-        flushTimer.isRepeats = false
-
         // Top bar
         var topBar = Box.createHorizontalBox()
         topBar.border = BorderFactory.createEmptyBorder(4, 0, 4, 0)
         topBar.add(JCheckBox("StdOut").apply {
             isSelected = showStdOut
             font = style.uiFont()
-            addActionListener { e ->
+            addActionListener {
                 showStdOut = isSelected
                 rebuildVisibleLines()
             }
@@ -90,7 +90,7 @@ class LogsView : BottomPanelView() {
         topBar.add(JCheckBox("StdErr").apply{
             isSelected = showStdErr
             font = style.uiFont()
-            addActionListener { e -> 
+            addActionListener {
                 showStdErr = isSelected
                 rebuildVisibleLines()
             }
@@ -99,15 +99,39 @@ class LogsView : BottomPanelView() {
         topBar.add(JButton("Clear").apply {
             setForeground(Color.LIGHT_GRAY)
             setFont(style.uiFont())
-            addActionListener { e -> 
-                synchronized<Unit>(pendingLock) {
-                    (pendingLines as MutableList<LogLine>).clear()
+            addActionListener {
+                while (true) {
+                    if (channel.tryReceive().getOrNull() == null)
+                        break
                 }
-                (allLines as MutableList<LogLine>).clear()
+                allLines.clear()
                 listModel.clear()
             }
         })
         add(topBar, BorderLayout.NORTH)
+
+        scope.launch {
+            val buffer = mutableListOf<LogLine>()
+
+            while (true) {
+                val first = channel.receive()
+                buffer.add(first)
+
+                delay(FLUSH_INTERVAL_MS.milliseconds)
+
+                while (true) {
+                    val next = channel.tryReceive().getOrNull() ?: break
+                    buffer.add(next)
+                }
+
+                val batch = buffer.toList()
+                buffer.clear()
+
+                withContext(Dispatchers.Swing) {
+                    flushBatch(batch)
+                }
+            }
+        }
 
         // Print stream
         System.setOut(PrintStream(
@@ -123,40 +147,11 @@ class LogsView : BottomPanelView() {
     }
 
     fun addLine(text: String, error: Boolean) {
-        synchronized(pendingLock) {
-            (pendingLines as MutableList<LogLine>).add(LogLine(text, error))
-        }
-
-        requestFlush()
+        channel.trySend(LogLine(text, error))
     }
 
-    private fun requestFlush() {
-        if (!flushRequestPosted.compareAndSet(false, true))
-            return
-
-        SwingUtilities.invokeLater {
-            flushRequestPosted.set(false)
-
-            if (!flushScheduled) {
-                flushScheduled = true
-                flushTimer.restart()
-            }
-        }
-    }
-
-    private fun flushPendingLines() {
-        flushScheduled = false
-
-        var batch: List<LogLine>
-        synchronized(pendingLock) {
-            if (pendingLines.isEmpty())
-                return
-
-            batch = ArrayList(pendingLines)
-            (pendingLines as MutableList<LogLine>).clear()
-        }
-
-        (allLines as MutableList<LogLine>).addAll(batch)
+    private fun flushBatch(batch: List<LogLine>) {
+        allLines.addAll(batch)
 
         val overflow = allLines.size - MAX_LINES
         val trimmed = overflow > 0
@@ -167,13 +162,6 @@ class LogsView : BottomPanelView() {
             rebuildVisibleLines()
         else
             appendVisibleLines(batch)
-
-        synchronized(pendingLock) {
-            if (!pendingLines.isEmpty()) {
-                flushScheduled = true
-                flushTimer.restart()
-            }
-        }
     }
 
     private fun appendVisibleLines(lines: List<LogLine>) {
@@ -182,7 +170,7 @@ class LogsView : BottomPanelView() {
                 listModel.addElement(line)
         }
 
-        if (!listModel.isEmpty)
+        if (listModel.size > 0)
             list.ensureIndexIsVisible(listModel.size - 1)
     }
 
@@ -194,14 +182,13 @@ class LogsView : BottomPanelView() {
                 listModel.addElement(line)
         }
 
-        if (!listModel.isEmpty)
+        if (listModel.size > 0)
             list.ensureIndexIsVisible(listModel.size - 1)
     }
 
-    private fun shouldShow(line: LogLine): Boolean {
-        return if (line.isError) showStdErr else showStdOut
-    }
+    private fun shouldShow(line: LogLine): Boolean =
+        if (line.isError) showStdErr else showStdOut
 
-    private fun stripAnsi(text: String): String =
-        text.replace("\u001B\\[[\\d]*m", "")
+    private fun String.stripAnsi(): String =
+        replace(ANSI_REGEX, "")
 }
