@@ -2,7 +2,7 @@
 
 ```sh
 ./gradlew :xide-app:assemble
-``
+```
 
 For now I am directing all the efforts to making a 3D editor for XastGE, because I don't want to use RSyntaxTextArea and LSP for a text editor, so I am planning to rewrite its plugins to Kotlin and use [kotlin-tree-sitter](https://github.com/tree-sitter/kotlin-tree-sitter) for this; so code editor refactorings TBD are:
 

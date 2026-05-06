@@ -16,10 +16,13 @@
       "isBackground": true,
       "problemMatcher": {
         "owner": "java",
+        "fileLocation": "relative",
         "pattern": [
           {
-            "regexp": "^(.*)$",
-            "message": 1
+            "regexp": "^(NOMATCH):(\\d+):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "message": 3
           }
         ],
         "background": {

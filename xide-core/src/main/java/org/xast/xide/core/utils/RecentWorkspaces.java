@@ -12,6 +12,7 @@ import org.xast.xide.core.Workspace;
 import org.xast.xide.core.config.XideConfig;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.EventHandler;
+import org.xast.xide.core.event.FileOpenRequestedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 
 import lombok.Getter;
@@ -35,6 +36,13 @@ public class RecentWorkspaces implements EventHandler {
     public void setupEventListeners(EventBus eventBus) {
         eventBus.subscribe(WorkspaceChangedEvent.class, e -> {
             addWorkspace(e.workspace());
+        });
+
+        eventBus.subscribe(FileOpenRequestedEvent.class, e -> {
+            File file = e.file();
+            if (file.exists()) {
+                addWorkspace(new Workspace.ExistingFile(e.file()));
+            }
         });
     }
 

@@ -31,8 +31,8 @@ class LogsView : BottomPanelView() {
     private val allLines = mutableListOf<LogLine>()
     private val scope = CoroutineScope(Dispatchers.Default)
     private val channel = Channel<LogLine>(Channel.UNLIMITED)
-    private val stdOutIcon: Icon
-    private val stdErrIcon: Icon
+    private val stdOutIcon = LucideIcon.INFO.icon(16, UIManager.getColor("Label.foreground"))
+    private val stdErrIcon = LucideIcon.CIRCLE_X.icon(16, Color.RED)
     private var showStdOut = true
     private var showStdErr = true
 
@@ -42,9 +42,6 @@ class LogsView : BottomPanelView() {
         val style = XideStyle.getCurrent()
         val bgColor = UIManager.getColor("TextArea.background")
         val fgColor = UIManager.getColor("Label.foreground")
-
-        stdOutIcon = LucideIcon.INFO.icon(16, fgColor)
-        stdErrIcon = LucideIcon.CIRCLE_X.icon(16, Color.RED)
 
         // List
         list.background = bgColor

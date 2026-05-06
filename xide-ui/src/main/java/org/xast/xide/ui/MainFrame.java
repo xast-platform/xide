@@ -303,7 +303,19 @@ public class MainFrame implements UIContext, EventHandler {
                     .map(ws -> ws.getPath().map(path -> new SingleItem(
                         path.toString(),
                         Optional.empty(),
-                        () -> eventBus.publish(new WorkspaceChangedEvent(ws))
+                        () -> {
+                            switch (ws) {
+                                case Workspace.ExistingFile f -> {
+                                    eventBus.publish(new FileOpenRequestedEvent(f.file()));
+                                }
+
+                                case Workspace.Directory _ -> {
+                                    eventBus.publish(new WorkspaceChangedEvent(ws));
+                                }
+                            
+                                default -> {}
+                            }
+                        }
                     )))
                     .flatMap(Optional::stream),
 
