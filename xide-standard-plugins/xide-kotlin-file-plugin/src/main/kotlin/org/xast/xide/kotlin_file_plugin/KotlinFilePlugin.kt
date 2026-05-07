@@ -13,5 +13,5 @@ class KotlinFilePlugin : FilePlugin {
     override fun fileExtensions(): Array<String> = arrayOf("kt")
 
     override fun view(eventBus: EventBus, file: File): CodePanelView =
-        NeoEditorView()
+        NeoEditorView(file)
 }
