@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Insets;
 import java.awt.event.WindowEvent;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -296,13 +297,17 @@ public class MainFrame implements UIContext, EventHandler {
     }
 
     private void updateRecentItems() {
+        var workspaces = recentWorkspaces.getWorkspaces();
+        var firstRecentItem = new AtomicBoolean(true);
+
         openRecentMenu.setItems(
             Stream.concat(
-                recentWorkspaces.getWorkspaces()
-                    .stream()
+                workspaces.stream()
                     .map(ws -> ws.getPath().map(path -> new SingleItem(
                         path.toString(),
-                        Optional.empty(),
+                        firstRecentItem.getAndSet(false)
+                            ? Optional.of("control shift R")
+                            : Optional.empty(),
                         () -> {
                             switch (ws) {
                                 case Workspace.ExistingFile f -> {
@@ -316,10 +321,10 @@ public class MainFrame implements UIContext, EventHandler {
                                 default -> {}
                             }
                         }
-                    )))
-                    .flatMap(Optional::stream),
+                    ))
+                ).flatMap(Optional::stream),
 
-                recentWorkspaces.getWorkspaces().isEmpty()
+                workspaces.isEmpty()
                     ? Stream.empty()
                     : Stream.of(
                         new SeparatorItem(),

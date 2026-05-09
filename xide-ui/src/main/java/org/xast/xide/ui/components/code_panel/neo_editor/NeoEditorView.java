@@ -12,6 +12,7 @@ import org.xast.xide.core.utils.Debug;
 
 public class NeoEditorView extends CodePanelView {
     private NeoEditor neoEditor;
+    private NeoEditorStatus editorStatus;
 
     public NeoEditorView(File file) {
         setLayout(new BorderLayout());
@@ -27,7 +28,10 @@ public class NeoEditorView extends CodePanelView {
         }
 
         neoEditor = new NeoEditor(content);
-        add(neoEditor);
+        add(neoEditor, BorderLayout.CENTER);
+
+        editorStatus = new NeoEditorStatus();
+        add(editorStatus, BorderLayout.SOUTH);
     }
 
     @Override
