@@ -10,16 +10,18 @@ import org.xast.xide.ui.components.RepaintRegion;
 import lombok.*;
 
 public class Caret {
+    private static final int BLINK_INTERVAL_MS = 500;
+
     @Getter @Setter
     private int deltaX = 0;
 
     @Getter @Setter
     private int deltaY = 0;
 
-    @Getter @Setter
+    @Getter
     private int x = 0;
 
-    @Getter @Setter
+    @Getter
     private int y = 0;
     
     @Getter @Setter
@@ -27,24 +29,49 @@ public class Caret {
 
     @Getter
     private boolean visible = true;
-    private Timer timer;
+    private final Timer timer;
+    private final RepaintRegion repaintRegion;
 
     public Caret(RepaintRegion repaintRegion) {
-        timer = new Timer(500, e -> {
+        this.repaintRegion = repaintRegion;
+        timer = new Timer(BLINK_INTERVAL_MS, e -> {
             visible = !visible;
-            repaintRegion.repaint(0, 0, 1000, 1000);
+            repaintCurrent();
         });
+        timer.setInitialDelay(BLINK_INTERVAL_MS);
+    }
 
-        timer.start();
+    public void moveTo(int nextX, int nextY) {
+        int previousX = x;
+        int previousY = y;
+
+        x = nextX;
+        y = nextY;
+        visible = true;
+
+        repaintAt(previousX, previousY);
+        repaintCurrent();
+
+        timer.restart();
     }
 
     public void setVisible(boolean visible) {
-        if (visible) {
-            timer.stop();
+        if (this.visible == visible) {
+            if (visible) {
+                timer.restart();
+            }
+
+            return;
         }
 
         this.visible = visible;
-        this.timer.restart();
+        repaintCurrent();
+
+        if (visible) {
+            timer.restart();
+        } else {
+            timer.stop();
+        }
     }
 
     public void paintComponent(Graphics g) {
@@ -52,5 +79,13 @@ public class Caret {
             g.setColor(Color.WHITE);
             g.fillRect(x * deltaX, y * deltaY, 2, height);
         }
+    }
+
+    private void repaintCurrent() {
+        repaintAt(x, y);
+    }
+
+    private void repaintAt(int x, int y) {
+        repaintRegion.repaint(x * deltaX, y * deltaY, 2, height);
     }
 }

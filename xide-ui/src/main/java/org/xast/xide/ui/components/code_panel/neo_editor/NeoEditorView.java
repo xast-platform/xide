@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.FileSaveRequestedEvent;
 import org.xast.xide.core.plugin.file.FileModel;
 import org.xast.xide.core.plugin.file.TextFileModel;
 import org.xast.xide.core.plugin.ui.CodePanelView;
@@ -14,7 +16,7 @@ public class NeoEditorView extends CodePanelView {
     private NeoEditor neoEditor;
     private NeoEditorStatus editorStatus;
 
-    public NeoEditorView(File file) {
+    public NeoEditorView(EventBus eventBus, File file) {
         setLayout(new BorderLayout());
 
         String content = new String();
@@ -27,11 +29,17 @@ public class NeoEditorView extends CodePanelView {
             }
         }
 
-        neoEditor = new NeoEditor(content);
-        add(neoEditor, BorderLayout.CENTER);
-
         editorStatus = new NeoEditorStatus();
         add(editorStatus, BorderLayout.SOUTH);
+
+        neoEditor = new NeoEditor(
+            content, 
+            editorStatus, 
+            () -> {
+                eventBus.publish(new FileSaveRequestedEvent(file, false));
+            }
+        );
+        add(neoEditor, BorderLayout.CENTER);
     }
 
     @Override

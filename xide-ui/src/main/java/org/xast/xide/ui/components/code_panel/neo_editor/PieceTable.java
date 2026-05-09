@@ -8,6 +8,16 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 public class PieceTable {
+    @FunctionalInterface
+    public interface CharOffsetConsumer {
+        void accept(char ch, int globalOffset);
+    }
+
+    @FunctionalInterface
+    public interface LineConsumer {
+        void accept(int line, int startOffset, int endOffset);
+    }
+
     private String originalBuffer;
     private String addBuffer;
     private Optional<Piece> pieceHead;
@@ -284,6 +294,75 @@ public class PieceTable {
 
         if (endPiece.length == 0) {
             removePiece(endPiece);
+        }
+    }
+
+    public int length() {
+        int totalLength = 0;
+        Optional<Piece> maybePiece = pieceHead;
+
+        while (maybePiece.isPresent()) {
+            Piece piece = maybePiece.get();
+            totalLength += piece.length;
+            maybePiece = piece.next;
+        }
+
+        return totalLength;
+    }
+
+    public void forEachChar(int startOffset, int endOffset, CharOffsetConsumer consumer) {
+        int contentLength = length();
+        int start = Math.max(0, Math.min(startOffset, contentLength));
+        int end = Math.max(0, Math.min(endOffset, contentLength));
+
+        if (start >= end) {
+            return;
+        }
+
+        Optional<Piece> maybePiece = pieceHead;
+        int pieceStartOffset = 0;
+
+        while (maybePiece.isPresent() && pieceStartOffset < end) {
+            Piece piece = maybePiece.get();
+            int pieceEndOffset = pieceStartOffset + piece.length;
+
+            if (pieceEndOffset > start) {
+                int fromInPiece = Math.max(start, pieceStartOffset) - pieceStartOffset;
+                int toInPiece = Math.min(end, pieceEndOffset) - pieceStartOffset;
+                String source = piece.source == Source.ORIGINAL ? originalBuffer : addBuffer;
+
+                for (int i = fromInPiece; i < toInPiece; i++) {
+                    consumer.accept(source.charAt(piece.offset + i), pieceStartOffset + i);
+                }
+            }
+
+            pieceStartOffset = pieceEndOffset;
+            maybePiece = piece.next;
+        }
+    }
+
+    public void forEachLine(int startLine, int endLine, LineConsumer consumer) {
+        int fromLine = Math.max(0, startLine);
+        int toLine = Math.max(fromLine, endLine);
+        int contentLength = length();
+        int[] currentLine = new int[] {0};
+        int[] lineStartOffset = new int[] {0};
+
+        forEachChar(0, contentLength, (ch, globalOffset) -> {
+            if (ch != '\n') {
+                return;
+            }
+
+            if (currentLine[0] >= fromLine && currentLine[0] < toLine) {
+                consumer.accept(currentLine[0], lineStartOffset[0], globalOffset);
+            }
+
+            currentLine[0]++;
+            lineStartOffset[0] = globalOffset + 1;
+        });
+
+        if (currentLine[0] >= fromLine && currentLine[0] < toLine) {
+            consumer.accept(currentLine[0], lineStartOffset[0], contentLength);
         }
     }
 
