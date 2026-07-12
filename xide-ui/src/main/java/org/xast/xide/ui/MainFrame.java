@@ -37,6 +37,10 @@ import org.xast.xide.ui.utils.FileChooser;
 import org.xast.xide.ui.utils.XideStyle;
 import org.xast.xide.ui.utils.FileChooser.FileChooserMode;
 
+import com.formdev.flatlaf.FlatDarculaLaf;
+import com.formdev.flatlaf.FlatIntelliJLaf;
+import com.formdev.flatlaf.intellijthemes.FlatDraculaIJTheme;
+import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTDraculaIJTheme;
 import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDarkerIJTheme;
 
 import lombok.Getter;
@@ -69,7 +73,7 @@ public class MainFrame implements UIContext, EventHandler {
         JFrame.setDefaultLookAndFeelDecorated(true);
         JDialog.setDefaultLookAndFeelDecorated(true);
 
-        FlatMTMaterialDarkerIJTheme.setup();
+        FlatDarculaLaf.setup();
     }
 
     public MainFrame(

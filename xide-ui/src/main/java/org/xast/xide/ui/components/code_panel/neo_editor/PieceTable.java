@@ -366,6 +366,80 @@ public class PieceTable {
         }
     }
 
+    public int lineCount() {
+        int count = 1;
+        Optional<Piece> maybePiece = pieceHead;
+
+        while (maybePiece.isPresent()) {
+            Piece piece = maybePiece.get();
+            String source = piece.getSource() == Source.ORIGINAL
+                ? originalBuffer
+                : addBuffer;
+            String content = source.substring(
+                piece.getOffset(),
+                piece.getOffset() + piece.getLength()
+            );
+
+            for (int i = 0; i < content.length(); i++) {
+                if (content.charAt(i) == '\n') {
+                    count++;
+                }
+            }
+
+            maybePiece = piece.next;
+        }
+
+        return count;
+    }
+
+    public List<String> readLines(int startLine, int endLine) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int line = 0;
+        boolean done = false;
+        Optional<Piece> maybePiece = pieceHead;
+
+        while (maybePiece.isPresent() && !done) {
+            Piece piece = maybePiece.get();
+            String source = piece.getSource() == Source.ORIGINAL
+                ? originalBuffer
+                : addBuffer;
+            String content = source.substring(
+                piece.getOffset(),
+                piece.getOffset() + piece.getLength()
+            );
+
+            for (int i = 0; i < content.length(); i++) {
+                char ch = content.charAt(i);
+
+                if (ch == '\n') {
+                    if (line >= startLine && line < endLine) {
+                        result.add(current.toString());
+                    }
+                    current.setLength(0);
+                    line++;
+                    if (line >= endLine) {
+                        done = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                if (line >= startLine) {
+                    current.append(ch);
+                }
+            }
+
+            maybePiece = piece.next;
+        }
+
+        if (!done && line >= startLine && line < endLine) {
+            result.add(current.toString());
+        }
+
+        return result;
+    }
+
     public static record PieceOffset(Piece piece, int offset) {}
 
     public static record Position(int line, int ch) {}

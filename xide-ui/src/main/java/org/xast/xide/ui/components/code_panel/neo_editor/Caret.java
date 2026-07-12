@@ -39,6 +39,7 @@ public class Caret {
             repaintCurrent();
         });
         timer.setInitialDelay(BLINK_INTERVAL_MS);
+        timer.start();
     }
 
     public void moveTo(int nextX, int nextY) {

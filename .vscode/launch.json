@@ -2,12 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Xide App (Gradle Debug)",
+      "name": "Xide App (Start Gradle + Attach)",
       "type": "java",
       "request": "attach",
       "hostName": "localhost",
       "port": 5005,
       "preLaunchTask": "gradle-run-xide-debug"
+    },
+    {
+      "name": "Xide App (Attach Only, no rebuild)",
+      "type": "java",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5005
     }
   ]
 }
