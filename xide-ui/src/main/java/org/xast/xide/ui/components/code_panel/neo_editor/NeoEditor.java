@@ -106,7 +106,7 @@ public class NeoEditor extends JComponent {
                 boolean nowHovering = isScrollbarVisible() && isOverScrollbar(e.getX());
                 if (nowHovering != hoveringScrollbar) {
                     hoveringScrollbar = nowHovering;
-                    needsRepaint = true; // or repaint() if you haven't done the frame-timer change
+                    needsRepaint = true;
                 }
             }
 
@@ -165,17 +165,15 @@ public class NeoEditor extends JComponent {
 
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_BACK_SPACE -> {
-                        pieceTable.delete(new Position(caret.getY(), caret.getX()));
-                        caret.moveTo(Math.max(0, caret.getX() - 1), caret.getY());
+                        deleteBackward();
                         textChanged = true;
                     }
                     case KeyEvent.VK_DELETE -> {
-                        pieceTable.delete(new Position(caret.getY(), caret.getX()));
+                        deleteForward();
                         textChanged = true;
                     }
                     case KeyEvent.VK_ENTER -> {
-                        pieceTable.insert("\n", new Position(caret.getY(), caret.getX()));
-                        caret.moveTo(0, caret.getY() + 1);
+                        insertNewline();
                         textChanged = true;
                     }
                     case KeyEvent.VK_LEFT ->
@@ -191,15 +189,13 @@ public class NeoEditor extends JComponent {
                     case KeyEvent.VK_F12 -> {}
                     default -> {
                         if (!e.isControlDown() && !e.isAltDown() && e.getKeyChar() >= 32) {
-                            pieceTable.insert(String.valueOf(e.getKeyChar()), new Position(caret.getY(), caret.getX()));
-                            caret.moveTo(caret.getX() + 1, caret.getY());
+                            insertChar(e.getKeyChar());
                             textChanged = true;
                         }
                     }
                 }
 
                 if (textChanged) {
-                    refreshMetrics();
                     textChangeListener.accept();
                 }
 
@@ -392,10 +388,81 @@ public class NeoEditor extends JComponent {
     private void refreshMetrics() {
         cachedLines = pieceTable.read();
         totalLines = Math.max(1, cachedLines.size());
+        updateGutterWidth();
+        clampScrollY();
+    }
 
+    private void updateGutterWidth() {
         int digits = Math.max(2, String.valueOf(totalLines).length());
         gutterWidth = GUTTER_PADDING + digits * fm.charWidth('0') + GUTTER_RIGHT_MARGIN;
+    }
 
+    private void insertChar(char ch) {
+        int x = caret.getX();
+        int y = caret.getY();
+
+        pieceTable.insert(String.valueOf(ch), new Position(y, x));
+
+        String line = cachedLines.get(y);
+        cachedLines.set(y, line.substring(0, x) + ch + line.substring(x));
+
+        caret.moveTo(x + 1, y);
+    }
+
+    private void insertNewline() {
+        int x = caret.getX();
+        int y = caret.getY();
+
+        pieceTable.insert("\n", new Position(y, x));
+
+        String line = cachedLines.get(y);
+        cachedLines.set(y, line.substring(0, x));
+        cachedLines.add(y + 1, line.substring(x));
+
+        totalLines++;
+        updateGutterWidth();
         clampScrollY();
+
+        caret.moveTo(0, y + 1);
+    }
+
+    private void deleteBackward() {
+        int x = caret.getX();
+        int y = caret.getY();
+
+        pieceTable.delete(new Position(y, x));
+
+        if (x > 0) {
+            String line = cachedLines.get(y);
+            cachedLines.set(y, line.substring(0, x - 1) + line.substring(x));
+            caret.moveTo(x - 1, y);
+        } else if (y > 0) {
+            String prevLine = cachedLines.get(y - 1);
+            String curLine = cachedLines.remove(y);
+            cachedLines.set(y - 1, prevLine + curLine);
+            totalLines--;
+            updateGutterWidth();
+            clampScrollY();
+            caret.moveTo(prevLine.length(), y - 1);
+        }
+    }
+
+    private void deleteForward() {
+        int x = caret.getX();
+        int y = caret.getY();
+
+        String line = cachedLines.get(y);
+
+        if (x < line.length()) {
+            pieceTable.delete(new Position(y, x + 1));
+            cachedLines.set(y, line.substring(0, x) + line.substring(x + 1));
+        } else if (y < cachedLines.size() - 1) {
+            pieceTable.delete(new Position(y + 1, 0));
+            String nextLine = cachedLines.remove(y + 1);
+            cachedLines.set(y, line + nextLine);
+            totalLines--;
+            updateGutterWidth();
+            clampScrollY();
+        }
     }
 }
