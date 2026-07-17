@@ -8,25 +8,33 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.ThemeChangedEvent;
 import org.xast.xide.core.plugin.bottom.BottomPanelPlugin;
 import org.xast.xide.ui.utils.XideStyle;
 
 public class BottomPanel extends JPanel {
     private JTabbedPane pane;
     private EventBus eventBus;
+    private XideStyle style;
 
     public BottomPanel(EventBus eventBus) {
         setLayout(new BorderLayout());
 
-        XideStyle style = XideStyle.getCurrent();
+        style = XideStyle.getCurrent();
 
         this.eventBus = eventBus;
         this.pane = new JTabbedPane();
         this.pane.setFont(style.uiFont());
 
-        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x424242)));
+        applyTheme();
+
+        eventBus.subscribe(ThemeChangedEvent.class, e -> applyTheme());
 
         add(pane, BorderLayout.CENTER);
+    }
+
+    private void applyTheme() {
+        setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, style.shiftAccent(-0.25f)));
     }
 
     public void addPlugin(BottomPanelPlugin plugin) {

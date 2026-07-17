@@ -17,6 +17,7 @@ import org.xast.xide.core.config.XideConfig;
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.EventHandler;
 import org.xast.xide.core.event.FileOpenRequestedEvent;
+import org.xast.xide.core.event.ThemeChangedEvent;
 import org.xast.xide.core.event.WorkspaceChangedEvent;
 import org.xast.xide.core.plugin.ui.SideBarContext;
 import org.xast.xide.core.plugin.ui.UIContext;
@@ -34,14 +35,13 @@ import org.xast.xide.ui.components.side.SideBar;
 import org.xast.xide.ui.components.side.ToolBar;
 import org.xast.xide.ui.components.side.ToolButton;
 import org.xast.xide.ui.utils.FileChooser;
+import org.xast.xide.ui.utils.ThemeSwitcher;
 import org.xast.xide.ui.utils.XideStyle;
 import org.xast.xide.ui.utils.FileChooser.FileChooserMode;
 
 import com.formdev.flatlaf.FlatDarculaLaf;
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.formdev.flatlaf.intellijthemes.FlatDraculaIJTheme;
-import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTDraculaIJTheme;
-import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDarkerIJTheme;
+import com.formdev.flatlaf.intellijthemes.FlatDarkFlatIJTheme;
+import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTGitHubDarkIJTheme;
 
 import lombok.Getter;
 
@@ -73,7 +73,7 @@ public class MainFrame implements UIContext, EventHandler {
         JFrame.setDefaultLookAndFeelDecorated(true);
         JDialog.setDefaultLookAndFeelDecorated(true);
 
-        FlatDarculaLaf.setup();
+        FlatMTGitHubDarkIJTheme.setup();
     }
 
     public MainFrame(
@@ -94,7 +94,7 @@ public class MainFrame implements UIContext, EventHandler {
         sideBar = new SideBar();
         bottomPanel = new BottomPanel(eventBus);
         menuBar = new MenuBar(frame);
-        toolBar = new ToolBar();
+        toolBar = new ToolBar(eventBus);
         openRecentMenu = new Menu("Open recent...", new MenuItem[] {});
 
         updateRecentItems();
@@ -199,7 +199,6 @@ public class MainFrame implements UIContext, EventHandler {
         frame.setLayout(new BorderLayout());
 
         // Menu bar
-        menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x424242)));
         menuBar.addMenu("File", fileMenu());
         menuBar.addMenu("Edit", new MenuItem[] {});
         menuBar.addMenu("View", new MenuItem[] {});
@@ -221,11 +220,12 @@ public class MainFrame implements UIContext, EventHandler {
 
         }));
 
+        menuBar.add(new ThemeSwitcher(eventBus));
+
         // Split panes
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, bottomPanel) {{
             setResizeWeight(0.2);
             setContinuousLayout(false);
-            setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(0x424242)));
         }};
 
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sideBar, verticalSplit) {{
@@ -238,10 +238,19 @@ public class MainFrame implements UIContext, EventHandler {
         frame.add(horizontalSplit, BorderLayout.CENTER);
         frame.add(toolBar, BorderLayout.WEST);
 
+        applyBorders(menuBar, verticalSplit);
+        eventBus.subscribe(ThemeChangedEvent.class, e -> applyBorders(menuBar, verticalSplit));
+
         SwingUtilities.invokeLater(() -> {
             int totalHeight = verticalSplit.getHeight();
             verticalSplit.setDividerLocation(totalHeight - XideStyle.BOTTOM_BAR_HEIGHT);
         });
+    }
+
+    private void applyBorders(MenuBar menuBar, JSplitPane verticalSplit) {
+        Color borderColor = XideStyle.getCurrent().shiftAccent(-0.25f);
+        menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderColor));
+        verticalSplit.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, borderColor));
     }
 
     public void setupEventListeners(EventBus eventBus) {

@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 
+import javax.swing.UIManager;
+
 import lombok.Setter;
 
 public record XideStyle(
@@ -46,6 +48,30 @@ public record XideStyle(
             favicon,
             windowSize
         );
+    }
+
+    public Color getBackgroundColor() {
+        return UIManager.getColor("Panel.background");
+    }
+
+    public boolean isDarkTheme() {
+        Color bg = getBackgroundColor();
+
+        double brightness =
+                (0.299 * bg.getRed() +
+                 0.587 * bg.getGreen() +
+                 0.114 * bg.getBlue());
+
+        return brightness < 128;
+    }
+
+    public Color shiftAccent(float fraction) {
+        Color bg = getBackgroundColor();
+        if (isDarkTheme()) {
+            return XideStyle.darken(bg, fraction);
+        } else {
+            return XideStyle.lighten(bg, fraction);
+        }
     }
 
     public static Color lighten(Color color, float fraction) {

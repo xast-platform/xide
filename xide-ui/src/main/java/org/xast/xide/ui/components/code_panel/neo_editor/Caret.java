@@ -3,9 +3,13 @@ package org.xast.xide.ui.components.code_panel.neo_editor;
 import java.awt.Color;
 import java.awt.Graphics;
 
+import javax.swing.BorderFactory;
 import javax.swing.Timer;
 
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.ThemeChangedEvent;
 import org.xast.xide.ui.components.RepaintRegion;
+import org.xast.xide.ui.utils.XideStyle;
 
 import lombok.*;
 
@@ -31,8 +35,16 @@ public class Caret {
     private boolean visible = true;
     private final Timer timer;
     private final RepaintRegion repaintRegion;
+    private Color caretColor;
 
-    public Caret(RepaintRegion repaintRegion) {
+    private final XideStyle style;
+
+    public Caret(EventBus eventBus, RepaintRegion repaintRegion) {
+        style = XideStyle.getCurrent();
+        applyTheme();
+
+        eventBus.subscribe(ThemeChangedEvent.class, e -> applyTheme());
+
         this.repaintRegion = repaintRegion;
         timer = new Timer(BLINK_INTERVAL_MS, e -> {
             visible = !visible;
@@ -40,6 +52,12 @@ public class Caret {
         });
         timer.setInitialDelay(BLINK_INTERVAL_MS);
         timer.start();
+    }
+
+    private void applyTheme() {
+        caretColor = style.isDarkTheme()
+            ? Color.WHITE
+            : Color.BLACK;
     }
 
     public void moveTo(int nextX, int nextY) {
@@ -77,7 +95,7 @@ public class Caret {
 
     public void paintComponent(Graphics g) {
         if (visible) {
-            g.setColor(Color.WHITE);
+            g.setColor(caretColor);
             g.fillRect(x * deltaX, y * deltaY, 2, height);
         }
     }

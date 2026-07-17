@@ -33,6 +33,7 @@ public class NeoEditorView extends CodePanelView {
         add(editorStatus, BorderLayout.SOUTH);
 
         neoEditor = new NeoEditor(
+            eventBus,
             content, 
             editorStatus, 
             () -> {

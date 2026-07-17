@@ -7,6 +7,9 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
@@ -19,9 +22,9 @@ import java.util.stream.Collectors;
 
 import javax.swing.JComponent;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 
-import org.xast.xide.core.utils.Debug;
+import org.xast.xide.core.event.EventBus;
+import org.xast.xide.core.event.ThemeChangedEvent;
 import org.xast.xide.ui.components.code_panel.neo_editor.PieceTable.Position;
 import org.xast.xide.ui.utils.XideStyle;
 
@@ -44,10 +47,16 @@ public class NeoEditor extends JComponent {
     private final Timer frameTimer;
     private boolean needsRepaint = true;
     private boolean hoveringScrollbar = false;
+    private boolean hasSelection = false;
+    private int selAnchorX, selAnchorY;
+    private boolean draggingSelection = false;
+    private int desiredColumn = -1;
 
     @Getter
     private Font font;
+    private Color fontColor;
     private FontMetrics fm;
+    private XideStyle style;
 
     private PieceTable pieceTable;
     private Caret caret;
@@ -60,7 +69,8 @@ public class NeoEditor extends JComponent {
     private int dragStartY;
     private int dragStartScrollY;
 
-    public NeoEditor(
+    public NeoEditor( 
+        EventBus eventBus,
         String content,
         NeoEditorStatus editorStatus,
         TextChangeListener textChangeListener
@@ -69,7 +79,7 @@ public class NeoEditor extends JComponent {
         setFocusable(true);
 
         pieceTable = new PieceTable(content);
-        caret = new Caret((x, y, w, h) -> needsRepaint = true);
+        caret = new Caret(eventBus, (x, y, w, h) -> needsRepaint = true);
         frameTimer = new Timer(FRAME_INTERVAL_MS, e -> {
             if (needsRepaint) {
                 needsRepaint = false;
@@ -78,11 +88,13 @@ public class NeoEditor extends JComponent {
         });
         frameTimer.start();
 
-        XideStyle style = XideStyle.getCurrent();
+        style = XideStyle.getCurrent();
 
         setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
-        setFont(style.codeFont().deriveFont(FONT_SIZE));
-        setBackground(UIManager.getColor("TextArea.background"));
+
+        applyTheme();
+
+        eventBus.subscribe(ThemeChangedEvent.class, e -> applyTheme());
 
         refreshMetrics();
 
@@ -98,7 +110,24 @@ public class NeoEditor extends JComponent {
                     return;
                 }
 
-                moveCaretToPoint(x, y, editorStatus);
+                Pos clicked = pointToPosition(x, y);
+
+                if (e.isShiftDown()) {
+                    beginSelectionIfNeeded();
+                    caret.moveTo(clicked.col(), clicked.line());
+                    hasSelection = !clicked.equals(anchorPos());
+                } else {
+                    clearSelection();
+                    selAnchorX = clicked.col();
+                    selAnchorY = clicked.line();
+                    caret.moveTo(clicked.col(), clicked.line());
+                    draggingSelection = true;
+                }
+
+                editorStatus.setCurrentChar(clicked.col() + 1);
+                editorStatus.setCurrentLine(clicked.line() + 1);
+                ensureCaretVisible();
+                needsRepaint = true;
             }
 
             @Override
@@ -112,30 +141,40 @@ public class NeoEditor extends JComponent {
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (!draggingScrollbar) {
+                if (draggingScrollbar) {
+                    int lineHeight = fm.getHeight();
+                    int contentHeight = totalLines * lineHeight;
+                    int trackHeight = getHeight();
+                    int maxScrollY = Math.max(0, contentHeight - trackHeight);
+
+                    if (maxScrollY == 0) {
+                        return;
+                    }
+
+                    int thumbHeight = computeThumbHeight(trackHeight, contentHeight);
+                    int maxThumbY = Math.max(1, trackHeight - thumbHeight);
+                    int deltaY = e.getY() - dragStartY;
+
+                    int deltaScroll = (int) ((long) deltaY * maxScrollY / maxThumbY);
+                    setScrollY(dragStartScrollY + deltaScroll);
                     return;
                 }
 
-                int lineHeight = fm.getHeight();
-                int contentHeight = totalLines * lineHeight;
-                int trackHeight = getHeight();
-                int maxScrollY = Math.max(0, contentHeight - trackHeight);
-
-                if (maxScrollY == 0) {
-                    return;
+                if (draggingSelection) {
+                    Pos pos = pointToPosition(e.getX(), e.getY());
+                    caret.moveTo(pos.col(), pos.line());
+                    hasSelection = !pos.equals(anchorPos());
+                    editorStatus.setCurrentChar(pos.col() + 1);
+                    editorStatus.setCurrentLine(pos.line() + 1);
+                    ensureCaretVisible();
+                    needsRepaint = true;
                 }
-
-                int thumbHeight = computeThumbHeight(trackHeight, contentHeight);
-                int maxThumbY = Math.max(1, trackHeight - thumbHeight);
-                int deltaY = e.getY() - dragStartY;
-
-                int deltaScroll = (int) ((long) deltaY * maxScrollY / maxThumbY);
-                setScrollY(dragStartScrollY + deltaScroll);
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
                 draggingScrollbar = false;
+                draggingSelection = false;
             }
 
             @Override
@@ -159,40 +198,102 @@ public class NeoEditor extends JComponent {
 
         addKeyListener(new KeyAdapter() {
             @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+
+                if (c == KeyEvent.CHAR_UNDEFINED || Character.isISOControl(c)) {
+                    return;
+                }
+                if (e.isControlDown() || e.isAltDown() || e.isMetaDown()) {
+                    return;
+                }
+
+                if (hasSelection) {
+                    deleteSelection();
+                }
+                insertChar(c);
+                textChangeListener.accept();
+
+                ensureCaretVisible();
+                needsRepaint = true;
+            }
+
+            @Override
             public void keyPressed(KeyEvent e) {
-                Debug.info(e.paramString());
                 boolean textChanged = false;
+                boolean shift = e.isShiftDown();
+                boolean ctrl = e.isControlDown();
 
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_BACK_SPACE -> {
-                        deleteBackward();
+                        if (hasSelection) deleteSelection(); else deleteBackward();
                         textChanged = true;
                     }
                     case KeyEvent.VK_DELETE -> {
-                        deleteForward();
+                        if (hasSelection) deleteSelection(); else deleteForward();
                         textChanged = true;
                     }
                     case KeyEvent.VK_ENTER -> {
+                        if (hasSelection) deleteSelection();
                         insertNewline();
                         textChanged = true;
                     }
-                    case KeyEvent.VK_LEFT ->
-                        caret.moveTo(Math.max(0, caret.getX() - 1), caret.getY());
-                    case KeyEvent.VK_RIGHT ->
-                        caret.moveTo(caret.getX() + 1, caret.getY());
-                    case KeyEvent.VK_DOWN ->
-                        caret.moveTo(caret.getX(), caret.getY() + 1);
-                    case KeyEvent.VK_UP ->
-                        caret.moveTo(caret.getX(), Math.max(0, caret.getY() - 1));
-                    case KeyEvent.VK_SHIFT -> {}
-                    case KeyEvent.VK_CAPS_LOCK -> {}
-                    case KeyEvent.VK_F12 -> {}
-                    default -> {
-                        if (!e.isControlDown() && !e.isAltDown() && e.getKeyChar() >= 32) {
-                            insertChar(e.getKeyChar());
+                    case KeyEvent.VK_LEFT -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretLeft();
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_RIGHT -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretRight();
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_DOWN -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretVertical(1);
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_UP -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretVertical(-1);
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_HOME -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretHome();
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_END -> {
+                        if (shift) beginSelectionIfNeeded(); else clearSelection();
+                        moveCaretEnd();
+                        if (shift) hasSelection = true;
+                    }
+                    case KeyEvent.VK_A -> {
+                        if (ctrl) {
+                            selAnchorX = 0;
+                            selAnchorY = 0;
+                            int lastLine = totalLines - 1;
+                            caret.moveTo(cachedLines.get(lastLine).length(), lastLine);
+                            hasSelection = true;
+                        }
+                    }
+                    case KeyEvent.VK_C -> { if (ctrl) copySelection(); }
+                    case KeyEvent.VK_X -> {
+                        if (ctrl && hasSelection) {
+                            copySelection();
+                            deleteSelection();
                             textChanged = true;
                         }
                     }
+                    case KeyEvent.VK_V -> {
+                        if (ctrl) {
+                            pasteClipboard();
+                            textChanged = true;
+                        }
+                    }
+                    case KeyEvent.VK_SHIFT, KeyEvent.VK_CAPS_LOCK, KeyEvent.VK_F12,
+                        KeyEvent.VK_CONTROL, KeyEvent.VK_ALT -> {}
+                    default -> {}
                 }
 
                 if (textChanged) {
@@ -203,6 +304,155 @@ public class NeoEditor extends JComponent {
                 needsRepaint = true;
             }
         });
+    }
+
+    private record Pos(int line, int col) implements Comparable<Pos> {
+        public int compareTo(Pos o) {
+            int c = Integer.compare(line, o.line);
+            return c != 0 ? c : Integer.compare(col, o.col);
+        }
+    }
+
+    private Pos anchorPos() { return new Pos(selAnchorY, selAnchorX); }
+    private Pos caretPos()  { return new Pos(caret.getY(), caret.getX()); }
+    private Pos selStart()  { return anchorPos().compareTo(caretPos()) <= 0 ? anchorPos() : caretPos(); }
+    private Pos selEnd()    { return anchorPos().compareTo(caretPos()) <= 0 ? caretPos() : anchorPos(); }
+
+    private Pos pointToPosition(int x, int y) {
+        int charWidth = fm.charWidth('W');
+        int lineHeight = fm.getHeight();
+
+        int adjustedX = x - gutterWidth;
+        int adjustedY = y + scrollY;
+
+        int line = Math.max(0, Math.min(adjustedY / lineHeight, totalLines - 1));
+        int rawCh = Math.max(0, (adjustedX + 5) / charWidth);
+        int lineLength = line < cachedLines.size() ? cachedLines.get(line).length() : 0;
+        int ch = Math.max(0, Math.min(rawCh, lineLength));
+
+        return new Pos(line, ch);
+    }
+
+    private int lineLength(int line) {
+        return line >= 0 && line < cachedLines.size() ? cachedLines.get(line).length() : 0;
+    }
+
+    private void moveCaretLeft() {
+        int x = caret.getX();
+        int y = caret.getY();
+        if (x > 0) {
+            caret.moveTo(x - 1, y);
+        } else if (y > 0) {
+            caret.moveTo(lineLength(y - 1), y - 1);
+        }
+        desiredColumn = -1;
+    }
+
+    private void moveCaretRight() {
+        int x = caret.getX();
+        int y = caret.getY();
+        if (x < lineLength(y)) {
+            caret.moveTo(x + 1, y);
+        } else if (y < totalLines - 1) {
+            caret.moveTo(0, y + 1);
+        }
+        desiredColumn = -1;
+    }
+
+    private void moveCaretVertical(int deltaLine) {
+        int targetLine = Math.max(0, Math.min(totalLines - 1, caret.getY() + deltaLine));
+        int column = desiredColumn >= 0 ? desiredColumn : caret.getX();
+        desiredColumn = column; // preserve across consecutive vertical moves
+        int clampedColumn = Math.min(column, lineLength(targetLine));
+        caret.moveTo(clampedColumn, targetLine);
+    }
+
+    private void moveCaretHome() {
+        caret.moveTo(0, caret.getY());
+        desiredColumn = -1;
+    }
+
+    private void moveCaretEnd() {
+        caret.moveTo(lineLength(caret.getY()), caret.getY());
+        desiredColumn = -1;
+    }
+
+    private String getSelectedText() {
+        Pos start = selStart();
+        Pos end = selEnd();
+        if (start.line() == end.line()) {
+            return cachedLines.get(start.line()).substring(start.col(), end.col());
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(cachedLines.get(start.line()).substring(start.col())).append('\n');
+        for (int line = start.line() + 1; line < end.line(); line++) {
+            sb.append(cachedLines.get(line)).append('\n');
+        }
+        sb.append(cachedLines.get(end.line()), 0, end.col());
+        return sb.toString();
+    }
+
+    private void copySelection() {
+        if (!hasSelection) return;
+        Toolkit.getDefaultToolkit().getSystemClipboard()
+            .setContents(new StringSelection(getSelectedText()), null);
+    }
+
+    private void pasteClipboard() {
+        try {
+            String text = (String) Toolkit.getDefaultToolkit()
+                .getSystemClipboard().getData(DataFlavor.stringFlavor);
+            if (hasSelection) deleteSelection();
+            insertText(text);
+        } catch (Exception ignored) {}
+    }
+
+    private void insertText(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n') insertNewline();
+            else if (c != '\r') insertChar(c);
+        }
+    }
+
+    private int charOffsetOf(Pos p) {
+        int offset = 0;
+        for (int i = 0; i < p.line(); i++) {
+            offset += cachedLines.get(i).length() + 1;
+        }
+        return offset + p.col();
+    }
+
+    private void deleteSelection() {
+        if (!hasSelection) return;
+        Pos start = selStart();
+        Pos end = selEnd();
+        int count = charOffsetOf(end) - charOffsetOf(start);
+
+        caret.moveTo(end.col(), end.line());
+        for (int i = 0; i < count; i++) {
+            deleteBackward();
+        }
+        clearSelection();
+    }
+
+    private void beginSelectionIfNeeded() {
+        if (!hasSelection) {
+            selAnchorX = caret.getX();
+            selAnchorY = caret.getY();
+        }
+    }
+
+    private void clearSelection() {
+        hasSelection = false;
+    }
+
+    private void applyTheme() {
+        fontColor = style.isDarkTheme()
+            ? Color.WHITE
+            : Color.BLACK;
+        setFont(style.codeFont().deriveFont(FONT_SIZE));
+        setBackground(style.shiftAccent(0.3f));
     }
 
     @Override
@@ -253,9 +503,10 @@ public class NeoEditor extends JComponent {
         contentG.setFont(font);
         contentG.translate(0, -scrollY);
 
+        paintSelection(contentG, firstVisibleLine, lastVisibleLine, lineHeight);
         caret.paintComponent(contentG);
 
-        contentG.setColor(Color.WHITE);
+        contentG.setColor(fontColor);
         for (int i = 0; i < visibleLines.size(); i++) {
             int lineIndex = firstVisibleLine + i;
             int baselineY = lineHeight * lineIndex + fm.getAscent();
@@ -267,15 +518,38 @@ public class NeoEditor extends JComponent {
         paintScrollbar(g2d, width, height, lineHeight);
     }
 
+    private void paintSelection(Graphics2D g, int firstVisibleLine, int lastVisibleLine, int lineHeight) {
+        if (!hasSelection) return;
+
+        Pos start = selStart();
+        Pos end = selEnd();
+
+        g.setColor(new Color(80, 140, 255, 70));
+        int from = Math.max(start.line(), firstVisibleLine);
+        int to = Math.min(end.line(), lastVisibleLine - 1);
+
+        for (int line = from; line <= to; line++) {
+            String text = line < cachedLines.size() ? cachedLines.get(line) : "";
+            int colStart = (line == start.line()) ? start.col() : 0;
+            int colEnd = (line == end.line()) ? end.col() : text.length();
+
+            int x1 = fm.stringWidth(text.substring(0, Math.min(colStart, text.length())));
+            int x2 = fm.stringWidth(text.substring(0, Math.min(colEnd, text.length())));
+            int width = Math.max(x2 - x1, colEnd > colStart ? 0 : 6);
+
+            g.fillRect(x1, lineHeight * line, Math.max(width, 6), lineHeight);
+        }
+    }
+
     private void paintGutter(Graphics2D g2d, int firstVisibleLine, int lastVisibleLine, int lineHeight) {
         Color base = getBackground();
-        Color gutterBg = base != null ? base.darker() : new Color(30, 30, 30);
+        Color lineNumberColor = new Color(fontColor.getRed(), fontColor.getGreen(), fontColor.getBlue(), 140);
 
         g2d.setColor(base);
         g2d.fillRect(0, 0, gutterWidth, getHeight());
 
         g2d.setFont(font);
-        g2d.setColor(new Color(140, 140, 140));
+        g2d.setColor(lineNumberColor);
 
         for (int lineIndex = firstVisibleLine; lineIndex < lastVisibleLine; lineIndex++) {
             String label = String.valueOf(lineIndex + 1);
@@ -284,7 +558,7 @@ public class NeoEditor extends JComponent {
             g2d.drawString(label, gutterWidth - textWidth - GUTTER_RIGHT_MARGIN, y);
         }
 
-        g2d.setColor(gutterBg.brighter());
+        g2d.setColor(style.shiftAccent(0.15f));
         g2d.drawLine(gutterWidth - 1, 0, gutterWidth - 1, getHeight());
     }
 
@@ -295,7 +569,7 @@ public class NeoEditor extends JComponent {
         }
 
         int trackX = width - SCROLLBAR_WIDTH;
-        g2d.setColor(new Color(0, 0, 0, 40));
+        g2d.setColor(style.isDarkTheme() ? new Color(255, 255, 255, 30) : new Color(0, 0, 0, 40));
         g2d.fillRect(trackX, 0, SCROLLBAR_WIDTH, height);
 
         int thumbHeight = computeThumbHeight(height, contentHeight);
@@ -305,8 +579,8 @@ public class NeoEditor extends JComponent {
 
         g2d.setColor(
             hoveringScrollbar || draggingScrollbar
-                ? new Color(180, 180, 180, 220)
-                : new Color(150, 150, 150, 180)
+                ? style.shiftAccent(0.5f)
+                : style.shiftAccent(0.35f)
         );
         g2d.fillRect(trackX + 2, thumbY, SCROLLBAR_WIDTH - 4, thumbHeight);
     }
@@ -337,26 +611,6 @@ public class NeoEditor extends JComponent {
         draggingScrollbar = true;
         dragStartY = clickY;
         dragStartScrollY = scrollY;
-    }
-
-    private void moveCaretToPoint(int x, int y, NeoEditorStatus editorStatus) {
-        int charWidth = fm.charWidth('W');
-        int lineHeight = fm.getHeight();
-
-        int adjustedX = x - gutterWidth;
-        int adjustedY = y + scrollY;
-
-        int line = Math.max(0, Math.min(adjustedY / lineHeight, totalLines - 1));
-        int rawCh = Math.max(0, (adjustedX + 5) / charWidth);
-        int lineLength = line < cachedLines.size() ? cachedLines.get(line).length() : 0;
-        int ch = Math.max(0, Math.min(rawCh, lineLength));
-
-        caret.moveTo(ch, line);
-        editorStatus.setCurrentChar(ch + 1);
-        editorStatus.setCurrentLine(line + 1);
-
-        ensureCaretVisible();
-        needsRepaint = true;
     }
 
     private void ensureCaretVisible() {

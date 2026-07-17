@@ -31,7 +31,7 @@ public class CodePanelTab extends JPanel implements EventHandler {
 
         this.title = new CodePanelTabTitle(model);
         this.title.setFont(style.uiFont());
-        this.close = new JButton(LucideIcon.X.icon(12, Color.WHITE));
+        this.close = new JButton(LucideIcon.X.icon(12, style.isDarkTheme() ? Color.WHITE : Color.BLACK));
         this.model = model;
 
         add(this.title);
