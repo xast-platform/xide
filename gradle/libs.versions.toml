@@ -15,6 +15,7 @@ org-jetbrains-pty4j-pty4j = "0.13.12"
 org-jogamp-gluegen-gluegen-rt = "2.5.0"
 org-jogamp-jogl-jogl-all = "2.5.0"
 org-projectlombok-lombok = "1.18.42"
+jtreesitter = "0.26.1"
 
 [libraries]
 com-fifesoft-autocomplete = { module = "com.fifesoft:autocomplete", version.ref = "com-fifesoft-autocomplete" }
@@ -30,3 +31,4 @@ org-jetbrains-pty4j-pty4j = { module = "org.jetbrains.pty4j:pty4j", version.ref 
 org-jogamp-gluegen-gluegen-rt = { module = "org.jogamp.gluegen:gluegen-rt", version.ref = "org-jogamp-gluegen-gluegen-rt" }
 org-jogamp-jogl-jogl-all = { module = "org.jogamp.jogl:jogl-all", version.ref = "org-jogamp-jogl-jogl-all" }
 org-projectlombok-lombok = { module = "org.projectlombok:lombok", version.ref = "org-projectlombok-lombok" }
+jtreesitter = { module = "io.github.tree-sitter:jtreesitter", version.ref = "jtreesitter" }

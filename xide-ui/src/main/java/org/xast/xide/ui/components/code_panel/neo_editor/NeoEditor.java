@@ -17,6 +17,8 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.lang.foreign.Arena;
+import java.lang.foreign.SymbolLookup;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,9 +27,11 @@ import javax.swing.Timer;
 
 import org.xast.xide.core.event.EventBus;
 import org.xast.xide.core.event.ThemeChangedEvent;
+import org.xast.xide.core.utils.Debug;
 import org.xast.xide.ui.components.code_panel.neo_editor.PieceTable.Position;
 import org.xast.xide.ui.utils.XideStyle;
 
+import io.github.treesitter.jtreesitter.Language;
 import lombok.Getter;
 
 public class NeoEditor extends JComponent {
@@ -78,6 +82,13 @@ public class NeoEditor extends JComponent {
         setLayout(null);
         setFocusable(true);
 
+        SymbolLookup lookup = SymbolLookup.libraryLookup("tree-sitter-java", Arena.global());
+        try {
+            var lang = Language.load(lookup, "tree_sitter_java");
+        } catch (RuntimeException e) {
+            Debug.error(e.getMessage());
+        }
+
         pieceTable = new PieceTable(content);
         caret = new Caret(eventBus, (x, y, w, h) -> needsRepaint = true);
         frameTimer = new Timer(FRAME_INTERVAL_MS, e -> {
@@ -89,13 +100,9 @@ public class NeoEditor extends JComponent {
         frameTimer.start();
 
         style = XideStyle.getCurrent();
-
         setCursor(Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR));
-
         applyTheme();
-
         eventBus.subscribe(ThemeChangedEvent.class, e -> applyTheme());
-
         refreshMetrics();
 
         MouseAdapter mouseHandler = new MouseAdapter() {

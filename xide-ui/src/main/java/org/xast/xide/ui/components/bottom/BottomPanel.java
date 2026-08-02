@@ -1,7 +1,6 @@
 package org.xast.xide.ui.components.bottom;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;

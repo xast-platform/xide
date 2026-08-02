@@ -23,6 +23,7 @@ dependencies {
     annotationProcessor(libs.org.projectlombok.lombok)
     testCompileOnly(libs.org.projectlombok.lombok)
     testAnnotationProcessor(libs.org.projectlombok.lombok)
+    implementation(libs.jtreesitter)
 }
 
 description = "xide-ui"

@@ -3,7 +3,6 @@ package org.xast.xide.ui.components.code_panel.neo_editor;
 import java.awt.Color;
 import java.awt.Graphics;
 
-import javax.swing.BorderFactory;
 import javax.swing.Timer;
 
 import org.xast.xide.core.event.EventBus;
