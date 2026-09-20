@@ -19,3 +19,8 @@ buildNumber.properties
 .gradle/
 dist/
 build/
+
+.idea/
+.metals/
+.bloop/
+.vscode/

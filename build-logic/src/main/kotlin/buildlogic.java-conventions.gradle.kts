@@ -41,3 +41,7 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<Javadoc>().configureEach {
     options.encoding = "UTF-8"
 }
+
+tasks.withType<org.gradle.api.tasks.scala.ScalaCompile>().configureEach {
+    scalaCompileOptions.additionalParameters = listOf("-Wunused:all")
+}

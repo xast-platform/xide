@@ -6,6 +6,7 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 import org.xast.xide.core.utils.LucideIcon;
 import org.xast.xide.folder_tree_plugin.model.FileNode;
 import org.xast.xide.ui.utils.FileIconProvider;
+import org.xast.xide.ui.utils.XideStyle;
 
 import java.awt.*;
 import java.io.File;
@@ -14,6 +15,7 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
     private static final int ICON_SIZE = 16;
     private static final Color ICON_COLOR = new Color(200, 200, 200);
 
+    private XideStyle style;
     private boolean selected;
     private boolean hovered;
 
@@ -27,6 +29,7 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
         int row,
         boolean hasFocus
     ) {
+        style = XideStyle.getCurrent();
         super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
 
         this.selected = selected;
@@ -60,10 +63,10 @@ public class FolderTreeRenderer extends DefaultTreeCellRenderer {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         if (selected) {
-            g2.setColor(new Color(60, 60, 60));
+            g2.setColor(style.shiftAccent(-0.4f));
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
         } else if (hovered) {
-            g2.setColor(new Color(45, 45, 45));
+            g2.setColor(style.shiftAccent(-0.2f));
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
         }
 

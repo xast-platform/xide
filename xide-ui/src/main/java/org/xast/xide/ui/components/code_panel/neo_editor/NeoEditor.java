@@ -82,12 +82,12 @@ public class NeoEditor extends JComponent {
         setLayout(null);
         setFocusable(true);
 
-        SymbolLookup lookup = SymbolLookup.libraryLookup("tree-sitter-java", Arena.global());
-        try {
-            var lang = Language.load(lookup, "tree_sitter_java");
-        } catch (RuntimeException e) {
-            Debug.error(e.getMessage());
-        }
+        // SymbolLookup lookup = SymbolLookup.libraryLookup("tree-sitter-java", Arena.global());
+        // try {
+        //     var lang = Language.load(lookup, "tree_sitter_java");
+        // } catch (RuntimeException e) {
+        //     Debug.error(e.getMessage());
+        // }
 
         pieceTable = new PieceTable(content);
         caret = new Caret(eventBus, (x, y, w, h) -> needsRepaint = true);

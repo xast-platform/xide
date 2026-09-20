@@ -17,11 +17,10 @@ plugins {
 }
 
 val pluginProjects = listOf(
-    ":xide-folder-tree-plugin",
+    // ":xide-folder-tree-plugin",
     ":xide-terminal-plugin",
     ":xide-settings-plugin",
     ":xide-rust-file-plugin",
-    ":xide-kotlin-file-plugin",
     ":xide-logs-plugin",
     ":xide-scene-editor-plugin",
     ":xide-rc-plugin",

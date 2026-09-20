@@ -16,6 +16,8 @@ org-jogamp-gluegen-gluegen-rt = "2.5.0"
 org-jogamp-jogl-jogl-all = "2.5.0"
 org-projectlombok-lombok = "1.18.42"
 jtreesitter = "0.26.1"
+org-scala-lang-scala3-library = "3.7.1"
+org-scala-lang-modules-scala-swing = "3.0.0"
 
 [libraries]
 com-fifesoft-autocomplete = { module = "com.fifesoft:autocomplete", version.ref = "com-fifesoft-autocomplete" }
@@ -32,3 +34,5 @@ org-jogamp-gluegen-gluegen-rt = { module = "org.jogamp.gluegen:gluegen-rt", vers
 org-jogamp-jogl-jogl-all = { module = "org.jogamp.jogl:jogl-all", version.ref = "org-jogamp-jogl-jogl-all" }
 org-projectlombok-lombok = { module = "org.projectlombok:lombok", version.ref = "org-projectlombok-lombok" }
 jtreesitter = { module = "io.github.tree-sitter:jtreesitter", version.ref = "jtreesitter" }
+org-scala-lang-scala3-library = { module = "org.scala-lang:scala3-library_3", version.ref = "org-scala-lang-scala3-library" }
+org-scala-lang-modules-scala-swing = { module = "org.scala-lang.modules:scala-swing_3", version.ref = "org-scala-lang-modules-scala-swing" }

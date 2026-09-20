@@ -6,11 +6,14 @@
 
 plugins {
     id("buildlogic.java-conventions")
+    id("scala")
 }
 
 dependencies {
     api(project(":xide-core"))
     api(project(":xide-ui"))
+
+    implementation(libs.org.scala.lang.scala3.library)
 }
 
 description = "Xide Folder Tree Plugin"
