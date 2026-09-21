@@ -2,18 +2,19 @@ package org.xast.xide.scene_editor_plugin
 
 import com.jogamp.opengl.*
 
-class CubeRenderer extends GLEventListener {
+class CubeRenderer extends GLEventListener:
+
     private var angle: Float = 0.0f
 
     override def init(drawable: GLAutoDrawable) = {
-        val gl = drawable.getGL().getGL4()
+        val gl = drawable.getGL.getGL4
 
         gl.glEnable(GL.GL_DEPTH_TEST)
         gl.glClearColor(0.1f, 0.1f, 0.15f, 1.0f)
     }
 
     override def display(drawable: GLAutoDrawable) = {
-        val gl = drawable.getGL().getGL4()
+        val gl = drawable.getGL.getGL4
 
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
@@ -81,7 +82,7 @@ class CubeRenderer extends GLEventListener {
         w: Int, 
         h: Int,
     ) = {
-        val gl = d.getGL().getGL4()
+        val gl = d.getGL.getGL4
         // gl.glMatrixMode(GL4.GL_PROJECTION)
         // gl.glLoadIdentity()
         val aspect = w.toFloat / h
@@ -90,4 +91,3 @@ class CubeRenderer extends GLEventListener {
     }
 
     override def dispose(drawable: GLAutoDrawable): Unit = {}
-}

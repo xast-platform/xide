@@ -13,6 +13,7 @@ import org.gradle.jvm.tasks.Jar
 
 plugins {
     id("buildlogic.java-conventions")
+    id("scala")
     application
 }
 
@@ -31,6 +32,8 @@ dependencies {
     api(project(":xide-core"))
     api(project(":xide-ui"))
     pluginProjects.forEach { runtimeOnly(project(it)) }
+    
+    implementation(libs.org.scala.lang.scala3.library)
     testImplementation(libs.junit.junit)
 }
 

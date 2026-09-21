@@ -1,12 +1,11 @@
 package org.xast.xide.scene_editor_plugin
 
 import java.io.File
-import java.io.IOException
-
-import scala.util.Try
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
+
+import scala.util.Try
 
 import org.xast.xide.core.event.EventBus
 import org.xast.xide.core.plugin.file.FileModel
@@ -24,16 +23,17 @@ object SceneEditorView {
 class SceneEditorView(
     val eventBus: EventBus, 
     val file: File
-) extends CodePanelView() {
+) extends CodePanelView():
+
     setLayout(BorderLayout())
 
-    if (!isAppInstalled()) {
+    if (!isAppInstalled) {
         add(CenteredLabel("CLI app <b>$CLI_APP</b> is not installed.", 200, 18f))
     } else {
         add(createGLView(), BorderLayout.CENTER)
     }
 
-    override def model(): FileModel = SceneFileModel()
+    override def model: FileModel = SceneFileModel()
 
     def createGLView(): Component = {
         val profile = GLProfile.get(GLProfile.GL4)
@@ -46,7 +46,7 @@ class SceneEditorView(
         panel
     }
 
-    def isAppInstalled(): Boolean = {
+    def isAppInstalled: Boolean = {
         Try {
             val process = ProcessBuilder(SceneEditorView.CLI_APP, "--version")
                 .redirectErrorStream(true)
@@ -56,4 +56,3 @@ class SceneEditorView(
             exitCode == 0
         }.getOrElse(false)
     }
-}

@@ -5,9 +5,7 @@ import java.io.IOException
 
 import org.xast.xide.core.plugin.file.FileModel
 
-class SceneFileModel extends FileModel {
+class SceneFileModel extends FileModel:
+
     @throws[IOException]
-    override def saveToFile(file: File): Unit = {
-        // TODO
-    }
-}
+    override def saveToFile(file: File) = ()

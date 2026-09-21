@@ -6,6 +6,7 @@
 
 plugins {
     id("buildlogic.java-conventions")
+    id("scala")
 }
 
 dependencies {
@@ -18,6 +19,7 @@ dependencies {
     api(libs.org.jetbrains.pty4j.pty4j)
     api(libs.org.jetbrains.jediterm.jediterm.ui)
     api(libs.org.jetbrains.jediterm.jediterm.core)
+    implementation(libs.org.scala.lang.scala3.library)
     testImplementation(libs.junit.junit)
     compileOnly(libs.org.projectlombok.lombok)
     annotationProcessor(libs.org.projectlombok.lombok)

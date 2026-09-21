@@ -6,9 +6,9 @@ import org.xast.xide.core.event.EventBus
 import org.xast.xide.core.plugin.file.FilePlugin
 import org.xast.xide.core.plugin.ui.CodePanelView
 
-class SceneEditorPlugin extends FilePlugin {
-    override def fileExtensions(): Array[String] = Array("xsc")
+class SceneEditorPlugin extends FilePlugin:
+
+    override def fileExtensions: Array[String] = Array("xsc")
 
     override def view(eventBus: EventBus, file: File): CodePanelView =
         SceneEditorView(eventBus, file)
-}

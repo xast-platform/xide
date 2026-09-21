@@ -22,6 +22,7 @@ object LogsView {
 }
 
 class LogsView extends BottomPanelView:
+    
     private val list      = new ListView[LogLine]()
     private val allLines  = new ArrayBuffer[LogLine]()
     private val channel   = new LinkedBlockingQueue[LogLine]()
@@ -31,7 +32,7 @@ class LogsView extends BottomPanelView:
 
     setLayout(BorderLayout())
 
-    val style = XideStyle.getCurrent()
+    val style = XideStyle.getCurrent
     val bgColor = UIManager.getColor("TextArea.background")
     val fgColor = UIManager.getColor("Label.foreground")
 
@@ -154,8 +155,6 @@ class LogsView extends BottomPanelView:
 
     private def shouldShow(line: LogLine): Boolean =
         if line.isError then showErr else showOut
-
-end LogsView
 
 def stripAnsi(text: String): String =
     LogsView.ANSI_REGEX.matcher(text).replaceAll("")

@@ -6,6 +6,7 @@
 
 plugins {
     id("buildlogic.java-conventions")
+    id("scala")
 }
 
 dependencies {
@@ -17,6 +18,7 @@ dependencies {
     annotationProcessor(libs.org.projectlombok.lombok)
     testCompileOnly(libs.org.projectlombok.lombok)
     testAnnotationProcessor(libs.org.projectlombok.lombok)
+    implementation(libs.org.scala.lang.scala3.library)
 }
 
 description = "xide-core"

@@ -8,6 +8,7 @@ import javax.swing.{UIManager, BorderFactory}
 import java.awt.Color
 
 class LogListRenderer extends ListView.Renderer[LogLine]:
+    
     private val stdOutIcon = 
         LucideIcon.INFO.icon(16, UIManager.getColor("Label.foreground"))
     
@@ -21,12 +22,12 @@ class LogListRenderer extends ListView.Renderer[LogLine]:
         value: LogLine,
         index: Int
     ): Component =
-        val style = XideStyle.getCurrent()
+        val style = XideStyle.getCurrent
         val bgColor = UIManager.getColor("TextArea.background")
         val label = new Label(stripAnsi(value.text))
 
         label.xAlignment = Alignment.Left
-        label.font = style.uiFont()
+        label.font = style.uiFont
         label.background = bgColor
         label.border = BorderFactory.createEmptyBorder(6, 6, 6, 6)
         label.iconTextGap = 8
