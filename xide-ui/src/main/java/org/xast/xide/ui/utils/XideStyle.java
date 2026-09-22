@@ -24,7 +24,7 @@ public record XideStyle(
     public static final int ICON_WIDTH = 18;
     public static final int ICON_HEIGHT = 18;
     public static final String DEFAULT_UI_FONT = "fonts/inter/inter.ttf";
-    public static final String DEFAULT_CODE_FONT = "fonts/jetbrains_mono/JetBrainsMono-Light.ttf";
+    public static final String DEFAULT_CODE_FONT = "fonts/iosevka/SGr-Iosevka-Regular.ttc";
     public static final String DEFAULT_ICON = "icons/logo.svg";
 
     public static XideStyle getCurrent() {

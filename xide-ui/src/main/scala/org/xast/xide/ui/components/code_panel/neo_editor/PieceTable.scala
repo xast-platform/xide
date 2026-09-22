@@ -1,25 +1,6 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
-class Piece(
-    var offset: Int,
-    var length: Int,
-    var source: Source,
-    var next: Option[Piece],
-)
-
-enum Source:
-    case Original
-    case Add
-
-case class FindResult(
-    piece: Option[Piece],
-    previous: Option[Piece],
-    offset: Int,
-)
-
-case class PieceOffset(piece: Piece, offset: Int)
-
-case class Position(line: Int, ch: Int)
+import scala.collection.mutable.ArrayBuffer
 
 class PieceTable(val content: String):
 
@@ -28,15 +9,15 @@ class PieceTable(val content: String):
     private var pieceHead: Option[Piece] = Some(new Piece(0, content.length, Source.Original, None))
 
     /**
-      * Renders full piece table into lines (Vector of Strings).
+      * Renders full piece table into lines (ArrayBuffer of Strings).
       * 
       * Do not use it for rendering text into editor - only for
       * caching and saving content to a file.
       */
-    def read(): Vector[String] =
+    def read(): ArrayBuffer[String] =
         var maybeHead = pieceHead
         var line = ""
-        val lines = Vector.newBuilder[String]
+        val lines = new ArrayBuffer[String]()
 
         while maybeHead.isDefined do
             val head = maybeHead.get
@@ -63,53 +44,44 @@ class PieceTable(val content: String):
             lines.addOne(line)
         }
 
-        return lines.result()
+        return lines
 
-    // public void insert(String content, Position pos) {
-    //     FindResult findResult = findPieceByLine(pos)
-    //     Optional<Piece> maybePiece = findResult.piece
-    //     Optional<Piece> maybePrevious = findResult.previous
-    //     int offset = findResult.offset
+    def insert(content: String, pos: Position): Unit =
+        val findResult = findPieceByLine(pos)
 
-    //     if (maybePiece.isEmpty()) {
-    //         if (pieceHead.isEmpty()) {
-    //             addBuffer += content
-    //             pieceHead = Optional.of(
-    //                 new Piece(0, content.length(), Source.ADD, null)
-    //             )
-    //             return
-    //         }
-    //         return
-    //     }
+        if findResult.piece.isEmpty then
+            if pieceHead.isEmpty then
+                addBuffer += content
+                pieceHead = Some(new Piece(0, content.length(), Source.Add, None))
+                return
+            
+            return
 
-    //     Piece piece = maybePiece.get()
+        var piece = findResult.piece.get
+        val nextPiece = new Piece(
+            piece.offset + findResult.offset,
+            piece.length - findResult.offset,
+            piece.source,
+            piece.next
+        )
+        val currentPiece = new Piece(
+            addBuffer.length,
+            content.length,
+            Source.Add,
+            Some(nextPiece)
+        )
 
-    //     Piece nextPiece = new Piece(
-    //         piece.offset + offset,
-    //         piece.length - offset,
-    //         piece.source,
-    //         piece.next
-    //     )
+        addBuffer += content
+        piece.length = findResult.offset
 
-    //     Piece currentPiece = new Piece(
-    //         addBuffer.length(),
-    //         content.length(),
-    //         Source.ADD,
-    //         Optional.of(nextPiece)
-    //     )
-
-    //     addBuffer += content
-    //     piece.length = offset
-
-    //     if (maybePrevious.isPresent() && piece.length == 0) {
-    //         Piece previous = maybePrevious.get()
-    //         previous.next = Optional.of(currentPiece)
-    //     } else if (piece.length == 0) {
-    //         pieceHead = Optional.of(currentPiece)
-    //     } else {
-    //         piece.next = Optional.of(currentPiece)
-    //     }
-    // }
+        if findResult.previous.isDefined && piece.length == 0 then
+            var previous = findResult.previous.get
+            previous.next = Some(currentPiece)
+        else if piece.length == 0 then
+            pieceHead = Some(currentPiece)
+        else
+            piece.next = Some(currentPiece)
+        
 
     def delete(pos: Position): Unit =
         val findResult = findPieceByLine(pos)
@@ -164,52 +136,43 @@ class PieceTable(val content: String):
         var endPiece = endResult.piece.get
 
         if startPiece == endPiece then
-            if (startOffset == 0) {
-                endPiece.offset += endOffset
-                endPiece.length -= endOffset
+            if startResult.offset == 0 then
+                endPiece.offset += endResult.offset
+                endPiece.length -= endResult.offset
                 return
-            }
 
-            if (endOffset == startPiece.length) {
-                startPiece.length = startOffset
+            if endResult.offset == startPiece.length then
+                startPiece.length = startResult.offset
                 return
-            }
 
-            startPiece.next = Optional.of(new Piece(
-                startPiece.offset + endOffset,
-                startPiece.length - endOffset,
+            startPiece.next = Some(new Piece(
+                startPiece.offset + endResult.offset,
+                startPiece.length - endResult.offset,
                 startPiece.source,
                 startPiece.next
             ))
-            startPiece.length = startOffset
+            startPiece.length = startResult.offset
 
             return
 
-        startPiece.length = startOffset
+        startPiece.length = startResult.offset
 
-        endPiece.offset += endOffset
-        endPiece.length -= endOffset
+        endPiece.offset += endResult.offset
+        endPiece.length -= endResult.offset
 
-        Optional<Piece> maybePiece = startPiece.next
+        var maybePiece = startPiece.next
 
-        while (maybePiece.isPresent()) {
-            Piece piece = maybePiece.get()
-
-            if (piece.equals(endPiece)) {
-                break
-            }
+        while maybePiece.isDefined && maybePiece.get == endPiece do
+            val piece = maybePiece.get
 
             startPiece.next = piece.next
             maybePiece = piece.next
-        }
 
-        if (startPiece.length == 0) {
+        if startPiece.length == 0 then
             removePiece(startPiece)
-        }
 
-        if (endPiece.length == 0) {
+        if endPiece.length == 0 then
             removePiece(endPiece)
-        }
 
     def length: Int = 
         var totalLength = 0
@@ -304,7 +267,7 @@ class PieceTable(val content: String):
 
         return count
 
-    // public List<String> readLines(int startLine, int endLine) {
+    // def List<String> readLines(int startLine, int endLine) {
     //     List<String> result = new ArrayList<>()
     //     StringBuilder current = new StringBuilder()
     //     int line = 0
@@ -412,3 +375,24 @@ class PieceTable(val content: String):
 
             maybePrevious = Some(head)
             maybeHead = head.next
+
+class Piece(
+    var offset: Int,
+    var length: Int,
+    var source: Source,
+    var next: Option[Piece],
+)
+
+enum Source:
+    case Original
+    case Add
+
+case class FindResult(
+    piece: Option[Piece],
+    previous: Option[Piece],
+    offset: Int,
+)
+
+case class PieceOffset(piece: Piece, offset: Int)
+
+case class Position(line: Int, ch: Int)

@@ -40,4 +40,4 @@ class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelVie
     )
     add(neoEditor, BorderLayout.CENTER)
 
-    override def model(): FileModel = new TextFileModel(neoEditor.getContent())
+    override def model(): FileModel = new TextFileModel(neoEditor.getContent)

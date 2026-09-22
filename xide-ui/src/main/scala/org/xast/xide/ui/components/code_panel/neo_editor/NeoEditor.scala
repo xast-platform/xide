@@ -17,21 +17,21 @@ import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
-import java.util.stream.Collectors
 
 import javax.swing.JComponent
 import javax.swing.Timer
 
 import org.xast.xide.core.event.EventBus
 import org.xast.xide.core.event.ThemeChangedEvent
-import org.xast.xide.ui.components.code_panel.neo_editor.PieceTable.Position
+import org.xast.xide.ui.components.code_panel.neo_editor.PieceTable
 import org.xast.xide.ui.utils.XideStyle
+import scala.collection.mutable.ArrayBuffer
 
 object NeoEditor:
     trait TextChangeListener:
         def accept(): Unit
 
-    private val FONT_SIZE: Float = 19f
+    private val FONT_SIZE: Float = 20f
     private val SCROLLBAR_WIDTH: Int = 16
     private val SCROLLBAR_MIN_THUMB: Int = 20
     private val GUTTER_PADDING: Int = 32
@@ -65,7 +65,7 @@ class NeoEditor(
     private var fm: FontMetrics = scala.compiletime.uninitialized
     private var style: XideStyle = scala.compiletime.uninitialized
 
-    private var cachedLines: Vector[String] = scala.compiletime.uninitialized
+    private var cachedLines: ArrayBuffer[String] = scala.compiletime.uninitialized
     private var totalLines: Int = 1
     private var gutterWidth: Int = 40
     private var scrollY: Int = 0
@@ -253,7 +253,7 @@ class NeoEditor(
                         selAnchorX = 0
                         selAnchorY = 0
                         val lastLine = totalLines - 1
-                        caret.moveTo(cachedLines.get(lastLine).length(), lastLine)
+                        caret.moveTo(cachedLines(lastLine).length(), lastLine)
                         hasSelection = true
                     }
                 case KeyEvent.VK_C =>
@@ -297,14 +297,14 @@ class NeoEditor(
 
         val line = Math.max(0, Math.min(adjustedY / lineHeight, totalLines - 1))
         val rawCh = Math.max(0, (adjustedX + 5) / charWidth)
-        val lineLength = if (line < cachedLines.size()) cachedLines.get(line).length() else 0
+        val lineLength = if (line < cachedLines.size) cachedLines(line).length() else 0
         val ch = Math.max(0, Math.min(rawCh, lineLength))
 
         Pos(line, ch)
     }
 
     private def lineLength(line: Int): Int = {
-        if (line >= 0 && line < cachedLines.size()) cachedLines.get(line).length() else 0
+        if (line >= 0 && line < cachedLines.size) cachedLines(line).length() else 0
     }
 
     private def moveCaretLeft(): Unit = {
@@ -351,14 +351,14 @@ class NeoEditor(
         val start = selStart()
         val end = selEnd()
         if (start.line == end.line) {
-            return cachedLines.get(start.line).substring(start.col, end.col)
+            return cachedLines(start.line).substring(start.col, end.col)
         }
         val sb = new StringBuilder()
-        sb.append(cachedLines.get(start.line).substring(start.col)).append('\n')
+        sb.append(cachedLines(start.line).substring(start.col)).append('\n')
         for (line <- start.line + 1 until end.line) {
-            sb.append(cachedLines.get(line)).append('\n')
+            sb.append(cachedLines(line)).append('\n')
         }
-        sb.append(cachedLines.get(end.line), 0, end.col)
+        sb.append(cachedLines(end.line), 0, end.col)
         sb.toString()
     }
 
@@ -390,7 +390,7 @@ class NeoEditor(
     private def charOffsetOf(p: Pos): Int = {
         var offset = 0
         for (i <- 0 until p.line) {
-            offset += cachedLines.get(i).length() + 1
+            offset += cachedLines(i).length() + 1
         }
         offset + p.col
     }
@@ -438,11 +438,8 @@ class NeoEditor(
 
     override def getFont(): Font = currentFont
 
-    def getContent(): String = {
-        pieceTable.read()
-            .stream()
-            .collect(Collectors.joining("\n"))
-    }
+    def getContent: String =
+        pieceTable.read().mkString("\n")
 
     override def paintComponent(g: Graphics): Unit = {
         super.paintComponent(g)
@@ -461,11 +458,6 @@ class NeoEditor(
         val visibleLineSlots = height / lineHeight + 2
         val lastVisibleLine = Math.min(totalLines, firstVisibleLine + visibleLineSlots)
 
-        val visibleLines: List[String] = if (firstVisibleLine < cachedLines.size())
-            cachedLines.subList(firstVisibleLine, Math.min(lastVisibleLine, cachedLines.size()))
-        else
-            List.of()
-
         val contentX = gutterWidth
         val contentWidth = Math.max(0, width - gutterWidth - SCROLLBAR_WIDTH)
 
@@ -478,10 +470,9 @@ class NeoEditor(
         caret.paintComponent(contentG)
 
         contentG.setColor(fontColor)
-        for (i <- 0 until visibleLines.size()) {
-            val lineIndex = firstVisibleLine + i
+        for (lineIndex <- firstVisibleLine until Math.min(lastVisibleLine, cachedLines.size)) {
             val baselineY = lineHeight * lineIndex + fm.getAscent()
-            contentG.drawString(visibleLines.get(i), 0, baselineY)
+            contentG.drawString(cachedLines(lineIndex), 0, baselineY)
         }
         contentG.dispose()
 
@@ -498,14 +489,15 @@ class NeoEditor(
         g.setColor(new Color(80, 140, 255, 70))
         val from = Math.max(start.line, firstVisibleLine)
         val to = Math.min(end.line, lastVisibleLine - 1)
+        val charWidth = fm.charWidth('W')
 
         for (line <- from to to) {
-            val text = if (line < cachedLines.size()) cachedLines.get(line) else ""
+            val text = if (line < cachedLines.size) cachedLines(line) else ""
             val colStart = if (line == start.line) start.col else 0
             val colEnd = if (line == end.line) end.col else text.length()
 
-            val x1 = fm.stringWidth(text.substring(0, Math.min(colStart, text.length())))
-            val x2 = fm.stringWidth(text.substring(0, Math.min(colEnd, text.length())))
+            val x1 = Math.min(colStart, text.length()) * charWidth
+            val x2 = Math.min(colEnd, text.length()) * charWidth
             val width = Math.max(x2 - x1, if (colEnd > colStart) 0 else 6)
 
             g.fillRect(x1, lineHeight * line, Math.max(width, 6), lineHeight)
@@ -613,7 +605,7 @@ class NeoEditor(
 
     private def refreshMetrics(): Unit = {
         cachedLines = pieceTable.read()
-        totalLines = Math.max(1, cachedLines.size())
+        totalLines = Math.max(1, cachedLines.size)
         updateGutterWidth()
         clampScrollY()
     }
@@ -629,8 +621,8 @@ class NeoEditor(
 
         pieceTable.insert(String.valueOf(ch), new Position(y, x))
 
-        val line = cachedLines.get(y)
-        cachedLines.set(y, line.substring(0, x) + ch + line.substring(x))
+        val line = cachedLines(y)
+        cachedLines.update(y, line.substring(0, x) + ch + line.substring(x))
 
         caret.moveTo(x + 1, y)
     }
@@ -641,9 +633,9 @@ class NeoEditor(
 
         pieceTable.insert("\n", new Position(y, x))
 
-        val line = cachedLines.get(y)
-        cachedLines.set(y, line.substring(0, x))
-        cachedLines.add(y + 1, line.substring(x))
+        val line = cachedLines(y)
+        cachedLines.update(y, line.substring(0, x))
+        cachedLines.insert(y + 1, line.substring(x))
 
         totalLines += 1
         updateGutterWidth()
@@ -659,13 +651,13 @@ class NeoEditor(
         pieceTable.delete(new Position(y, x))
 
         if (x > 0) {
-            val line = cachedLines.get(y)
-            cachedLines.set(y, line.substring(0, x - 1) + line.substring(x))
+            val line = cachedLines(y)
+            cachedLines.update(y, line.substring(0, x - 1) + line.substring(x))
             caret.moveTo(x - 1, y)
         } else if (y > 0) {
-            val prevLine = cachedLines.get(y - 1)
+            val prevLine = cachedLines(y - 1)
             val curLine = cachedLines.remove(y)
-            cachedLines.set(y - 1, prevLine + curLine)
+            cachedLines.update(y - 1, prevLine + curLine)
             totalLines -= 1
             updateGutterWidth()
             clampScrollY()
@@ -677,15 +669,15 @@ class NeoEditor(
         val x = caret.getX()
         val y = caret.getY()
 
-        val line = cachedLines.get(y)
+        val line = cachedLines(y)
 
         if (x < line.length()) {
             pieceTable.delete(new Position(y, x + 1))
-            cachedLines.set(y, line.substring(0, x) + line.substring(x + 1))
-        } else if (y < cachedLines.size() - 1) {
+            cachedLines.update(y, line.substring(0, x) + line.substring(x + 1))
+        } else if (y < cachedLines.size - 1) {
             pieceTable.delete(new Position(y + 1, 0))
             val nextLine = cachedLines.remove(y + 1)
-            cachedLines.set(y, line + nextLine)
+            cachedLines.update(y, line + nextLine)
             totalLines -= 1
             updateGutterWidth()
             clampScrollY()
