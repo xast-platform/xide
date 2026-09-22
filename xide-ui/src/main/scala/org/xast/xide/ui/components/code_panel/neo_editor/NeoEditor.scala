@@ -6,6 +6,7 @@ import java.awt.Font
 import java.awt.FontMetrics
 import java.awt.Graphics
 import java.awt.Graphics2D
+import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -23,6 +24,7 @@ import javax.swing.Timer
 
 import org.xast.xide.core.event.EventBus
 import org.xast.xide.core.event.ThemeChangedEvent
+import org.xast.xide.core.utils.Debug
 import org.xast.xide.ui.components.code_panel.neo_editor.PieceTable
 import org.xast.xide.ui.utils.XideStyle
 import scala.collection.mutable.ArrayBuffer
@@ -53,6 +55,8 @@ class NeoEditor(
     import NeoEditor.*
 
     private var needsRepaint: Boolean = true
+    private var fullRepaintNeeded: Boolean = true
+    private var dirtyRect: Rectangle = null
     private var hoveringScrollbar: Boolean = false
     private var hasSelection: Boolean = false
     private var selAnchorX: Int = 0
@@ -65,7 +69,6 @@ class NeoEditor(
     private var fm: FontMetrics = scala.compiletime.uninitialized
     private var style: XideStyle = scala.compiletime.uninitialized
 
-    private var cachedLines: ArrayBuffer[String] = scala.compiletime.uninitialized
     private var totalLines: Int = 1
     private var gutterWidth: Int = 40
     private var scrollY: Int = 0
@@ -78,13 +81,22 @@ class NeoEditor(
     setFocusable(true)
 
     private val pieceTable = new PieceTable(content)
-    private val caret = new Caret(eventBus, (x, y, w, h) => needsRepaint = true)
+    private def cachedLines: ArrayBuffer[String] = pieceTable.lines
+    private val caret = new Caret(eventBus, (x, y, w, h) => invalidateRect(gutterWidth + x, y - scrollY, w, h))
     private val frameTimer: Timer = new Timer(
         FRAME_INTERVAL_MS,
-        e => {
+        _ => {
             if (needsRepaint) {
                 needsRepaint = false
-                repaint()
+                if (fullRepaintNeeded || dirtyRect == null) {
+                    fullRepaintNeeded = false
+                    dirtyRect = null
+                    repaint()
+                } else {
+                    val r = dirtyRect
+                    dirtyRect = null
+                    repaint(r.x, r.y, r.width, r.height)
+                }
             }
         },
     )
@@ -107,6 +119,7 @@ class NeoEditor(
                 return
             }
 
+            val prevSelection = selectionLinesOrEmpty()
             val clicked = pointToPosition(x, y)
 
             if (e.isShiftDown()) {
@@ -124,7 +137,7 @@ class NeoEditor(
             editorStatus.setCurrentChar(clicked.col + 1)
             editorStatus.setCurrentLine(clicked.line + 1)
             ensureCaretVisible()
-            needsRepaint = true
+            invalidateSelectionChange(prevSelection)
         }
 
         override def mouseMoved(e: MouseEvent): Unit = {
@@ -156,13 +169,14 @@ class NeoEditor(
             }
 
             if (draggingSelection) {
+                val prevSelection = selectionLinesOrEmpty()
                 val pos = pointToPosition(e.getX(), e.getY())
                 caret.moveTo(pos.col, pos.line)
                 hasSelection = pos != anchorPos()
                 editorStatus.setCurrentChar(pos.col + 1)
                 editorStatus.setCurrentLine(pos.line + 1)
                 ensureCaretVisible()
-                needsRepaint = true
+                invalidateSelectionChange(prevSelection)
             }
         }
 
@@ -183,7 +197,7 @@ class NeoEditor(
     addComponentListener(new ComponentAdapter():
         override def componentResized(e: ComponentEvent): Unit = {
             clampScrollY()
-            needsRepaint = true
+            invalidateAll()
         }
     )
 
@@ -205,13 +219,14 @@ class NeoEditor(
             textChangeListener.accept()
 
             ensureCaretVisible()
-            needsRepaint = true
+            invalidateAll()
         }
 
         override def keyPressed(e: KeyEvent): Unit = {
             var textChanged = false
             val shift = e.isShiftDown()
             val ctrl = e.isControlDown()
+            val prevSelection = selectionLinesOrEmpty()
 
             e.getKeyCode() match {
                 case KeyEvent.VK_BACK_SPACE =>
@@ -279,7 +294,12 @@ class NeoEditor(
             }
 
             ensureCaretVisible()
-            needsRepaint = true
+
+            if (textChanged) {
+                invalidateAll()
+            } else {
+                invalidateSelectionChange(prevSelection)
+            }
         }
     )
 
@@ -287,6 +307,40 @@ class NeoEditor(
     private def caretPos(): Pos = Pos(caret.getY(), caret.getX())
     private def selStart(): Pos = if (anchorPos().compareTo(caretPos()) <= 0) anchorPos() else caretPos()
     private def selEnd(): Pos = if (anchorPos().compareTo(caretPos()) <= 0) caretPos() else anchorPos()
+
+    private def invalidateAll(): Unit = {
+        fullRepaintNeeded = true
+        needsRepaint = true
+    }
+
+    private def invalidateRect(x: Int, y: Int, w: Int, h: Int): Unit = {
+        val rect = new Rectangle(x, y, Math.max(w, 1), Math.max(h, 1))
+        dirtyRect = if (dirtyRect == null) rect else dirtyRect.union(rect)
+        needsRepaint = true
+    }
+
+    private def invalidateLines(fromLine: Int, toLine: Int): Unit = {
+        val lineHeight = fm.getHeight()
+        val top = fromLine * lineHeight - scrollY
+        val bottom = (toLine + 1) * lineHeight - scrollY
+        invalidateRect(0, top, Math.max(getWidth(), 1), bottom - top)
+    }
+
+    private def selectionLinesOrEmpty(): Option[(Int, Int)] =
+        if (hasSelection) Some((selStart().line, selEnd().line)) else None
+
+    private def invalidateSelectionChange(before: Option[(Int, Int)]): Unit = {
+        val after = selectionLinesOrEmpty()
+        if (before == after) {
+            return
+        }
+        (before, after) match {
+            case (None, None) => ()
+            case (Some((a, b)), None) => invalidateLines(a, b)
+            case (None, Some((a, b))) => invalidateLines(a, b)
+            case (Some((a1, b1)), Some((a2, b2))) => invalidateLines(Math.min(a1, a2), Math.max(b1, b2))
+        }
+    }
 
     private def pointToPosition(x: Int, y: Int): Pos = {
         val charWidth = fm.charWidth('W')
@@ -358,14 +412,19 @@ class NeoEditor(
         for (line <- start.line + 1 until end.line) {
             sb.append(cachedLines(line)).append('\n')
         }
-        sb.append(cachedLines(end.line), 0, end.col)
+        sb.append(cachedLines(end.line).substring(0, end.col))
         sb.toString()
     }
 
     private def copySelection(): Unit = {
         if (!hasSelection) return
-        Toolkit.getDefaultToolkit().getSystemClipboard()
-            .setContents(new StringSelection(getSelectedText()), null)
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard()
+                .setContents(new StringSelection(getSelectedText()), null)
+        } catch {
+            case e: Exception =>
+                Debug.error("copySelection failed: " + e)
+        }
     }
 
     private def pasteClipboard(): Unit = {
@@ -387,24 +446,13 @@ class NeoEditor(
         }
     }
 
-    private def charOffsetOf(p: Pos): Int = {
-        var offset = 0
-        for (i <- 0 until p.line) {
-            offset += cachedLines(i).length() + 1
-        }
-        offset + p.col
-    }
-
     private def deleteSelection(): Unit = {
         if (!hasSelection) return
         val start = selStart()
         val end = selEnd()
-        val count = charOffsetOf(end) - charOffsetOf(start)
 
-        caret.moveTo(end.col, end.line)
-        for (i <- 0 until count) {
-            deleteBackward()
-        }
+        pieceTable.deleteRange(new Position(start.line, start.col), new Position(end.line, end.col))
+        caret.moveTo(start.col, start.line)
         clearSelection()
     }
 
@@ -439,7 +487,7 @@ class NeoEditor(
     override def getFont(): Font = currentFont
 
     def getContent: String =
-        pieceTable.read().mkString("\n")
+        cachedLines.mkString("\n")
 
     override def paintComponent(g: Graphics): Unit = {
         super.paintComponent(g)
@@ -581,6 +629,7 @@ class NeoEditor(
         val lineHeight = fm.getHeight()
         val caretTop = caret.getY() * lineHeight
         val caretBottom = caretTop + lineHeight
+        val previousScrollY = scrollY
 
         if (caretTop < scrollY) {
             scrollY = caretTop
@@ -589,12 +638,16 @@ class NeoEditor(
         }
 
         clampScrollY()
+
+        if (scrollY != previousScrollY) {
+            invalidateAll()
+        }
     }
 
     private def setScrollY(value: Int): Unit = {
         scrollY = value
         clampScrollY()
-        needsRepaint = true
+        invalidateAll()
     }
 
     private def clampScrollY(): Unit = {
@@ -604,7 +657,6 @@ class NeoEditor(
     }
 
     private def refreshMetrics(): Unit = {
-        cachedLines = pieceTable.read()
         totalLines = Math.max(1, cachedLines.size)
         updateGutterWidth()
         clampScrollY()
@@ -621,9 +673,6 @@ class NeoEditor(
 
         pieceTable.insert(String.valueOf(ch), new Position(y, x))
 
-        val line = cachedLines(y)
-        cachedLines.update(y, line.substring(0, x) + ch + line.substring(x))
-
         caret.moveTo(x + 1, y)
     }
 
@@ -632,10 +681,6 @@ class NeoEditor(
         val y = caret.getY()
 
         pieceTable.insert("\n", new Position(y, x))
-
-        val line = cachedLines(y)
-        cachedLines.update(y, line.substring(0, x))
-        cachedLines.insert(y + 1, line.substring(x))
 
         totalLines += 1
         updateGutterWidth()
@@ -647,37 +692,30 @@ class NeoEditor(
     private def deleteBackward(): Unit = {
         val x = caret.getX()
         val y = caret.getY()
+        val prevLineLengthBeforeMerge = if (y > 0) cachedLines(y - 1).length() else 0
 
         pieceTable.delete(new Position(y, x))
 
         if (x > 0) {
-            val line = cachedLines(y)
-            cachedLines.update(y, line.substring(0, x - 1) + line.substring(x))
             caret.moveTo(x - 1, y)
         } else if (y > 0) {
-            val prevLine = cachedLines(y - 1)
-            val curLine = cachedLines.remove(y)
-            cachedLines.update(y - 1, prevLine + curLine)
             totalLines -= 1
             updateGutterWidth()
             clampScrollY()
-            caret.moveTo(prevLine.length(), y - 1)
+            caret.moveTo(prevLineLengthBeforeMerge, y - 1)
         }
     }
 
     private def deleteForward(): Unit = {
         val x = caret.getX()
         val y = caret.getY()
+        val lineLength = cachedLines(y).length()
+        val lastLineIndex = cachedLines.size - 1
 
-        val line = cachedLines(y)
-
-        if (x < line.length()) {
+        if (x < lineLength) {
             pieceTable.delete(new Position(y, x + 1))
-            cachedLines.update(y, line.substring(0, x) + line.substring(x + 1))
-        } else if (y < cachedLines.size - 1) {
+        } else if (y < lastLineIndex) {
             pieceTable.delete(new Position(y + 1, 0))
-            val nextLine = cachedLines.remove(y + 1)
-            cachedLines.update(y, line + nextLine)
             totalLines -= 1
             updateGutterWidth()
             clampScrollY()
