@@ -17,7 +17,6 @@ import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
-import java.util.List
 import java.util.stream.Collectors
 
 import javax.swing.JComponent
@@ -66,7 +65,7 @@ class NeoEditor(
     private var fm: FontMetrics = scala.compiletime.uninitialized
     private var style: XideStyle = scala.compiletime.uninitialized
 
-    private var cachedLines: List[String] = scala.compiletime.uninitialized
+    private var cachedLines: Vector[String] = scala.compiletime.uninitialized
     private var totalLines: Int = 1
     private var gutterWidth: Int = 40
     private var scrollY: Int = 0

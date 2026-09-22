@@ -1,4 +1,5 @@
 {
+    "metals.javaHome": "/usr/lib/jvm/java-25-openjdk-amd64",
     "java.configuration.updateBuildConfiguration": "automatic",
     "java.configuration.runtimes": [
         {

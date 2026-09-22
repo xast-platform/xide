@@ -205,8 +205,6 @@ public class MainFrame implements UIContext, EventHandler {
 
         }));
 
-        menuBar.add(new ThemeSwitcher(eventBus));
-
         // Split panes
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, codePanel, bottomPanel) {{
             setResizeWeight(0.2);
