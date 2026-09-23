@@ -13,31 +13,31 @@ import org.xast.xide.core.plugin.ui.CodePanelView
 import org.xast.xide.core.utils.Debug
 
 class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelView:
-    private var neoEditor: NeoEditor = scala.compiletime.uninitialized
-    private var editorStatus: NeoEditorStatus = scala.compiletime.uninitialized
+   private var neoEditor: NeoEditor = scala.compiletime.uninitialized
+   private var editorStatus: NeoEditorStatus = scala.compiletime.uninitialized
 
-    setLayout(new BorderLayout())
+   setLayout(new BorderLayout())
 
-    private var content = ""
+   private var content = ""
 
-    if (file.exists() && file.canRead()) {
-        try {
-            content = Files.readString(file.toPath())
-        } catch {
-            case e: IOException =>
-                Debug.error("Cannot read file `" + file.getName() + "`: " + e.getMessage())
-        }
-    }
+   if (file.exists() && file.canRead()) {
+      try {
+         content = Files.readString(file.toPath())
+      } catch {
+         case e: IOException =>
+            Debug.error("Cannot read file `" + file.getName() + "`: " + e.getMessage())
+      }
+   }
 
-    editorStatus = new NeoEditorStatus()
-    add(editorStatus, BorderLayout.SOUTH)
+   editorStatus = new NeoEditorStatus()
+   add(editorStatus, BorderLayout.SOUTH)
 
-    neoEditor = new NeoEditor(
-        eventBus,
-        content,
-        editorStatus,
-        () => eventBus.publish(new FileSaveRequestedEvent(file, false)),
-    )
-    add(neoEditor, BorderLayout.CENTER)
+   neoEditor = new NeoEditor(
+      eventBus,
+      content,
+      editorStatus,
+      () => eventBus.publish(new FileSaveRequestedEvent(file, false)),
+   )
+   add(neoEditor, BorderLayout.CENTER)
 
-    override def model(): FileModel = new TextFileModel(neoEditor.getContent)
+   override def model(): FileModel = new TextFileModel(neoEditor.getContent)

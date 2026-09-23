@@ -20,6 +20,7 @@ dependencies {
     api(libs.org.jetbrains.jediterm.jediterm.ui)
     api(libs.org.jetbrains.jediterm.jediterm.core)
     implementation(libs.org.scala.lang.scala3.library)
+    implementation(libs.org.scala.lang.modules.scala.swing)
     testImplementation(libs.junit.junit)
     compileOnly(libs.org.projectlombok.lombok)
     annotationProcessor(libs.org.projectlombok.lombok)
