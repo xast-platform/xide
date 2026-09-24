@@ -4,7 +4,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.boundary
 import scala.util.boundary.break
 
-class PieceTable(val content: String):
+class MutablePieceTable(val content: String):
 
    private val originalBuffer: String   = content
    private var addBuffer: String        = ""
@@ -168,28 +168,7 @@ class PieceTable(val content: String):
             
       totalLength
 
-   def lineCount(): Int =
-      var count = 1
-      var maybePiece = pieceHead
-
-      while maybePiece.isDefined do
-         val piece = maybePiece.get
-         val source = piece.source match
-            case Source.Original => originalBuffer        
-            case Source.Add     => addBuffer
-
-         val content = source.substring(
-            piece.offset,
-            piece.offset + piece.length,
-         )
-
-         for i <- 0 until content.length do
-            if content.charAt(i) == '\n' then
-               count += 1
-            
-         maybePiece = piece.next
-
-      return count
+   def lineCount: Int = lineCache.size
 
    private def computeLines(): ArrayBuffer[String] =
       var maybeHead = pieceHead

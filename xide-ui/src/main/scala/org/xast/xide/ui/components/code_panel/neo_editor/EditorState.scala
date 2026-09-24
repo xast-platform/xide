@@ -6,9 +6,38 @@ case class EditorState(
    caret: Caret,
    selection: Selection,
    scroll: Scroll,
-   draggingScrollbar: Boolean,
-   hoveringScrollbar: Boolean
-)
+   draggingScrollbar: Boolean = false,
+   hoveringScrollbar: Boolean = false,
+   gutterWidth: Int = EditorState.defaultGutterWidth,
+):
+
+   def mapCaret(f: Caret => Caret): EditorState = 
+      copy(caret = f(caret))
+
+   def mapSelection(f: Selection => Selection): EditorState = 
+      copy(selection = f(selection))
+
+   def mapScroll(f: Scroll => Scroll): EditorState = 
+      copy(scroll = f(scroll))
+
+   def mapDraggingScrollbar(f: Boolean => Boolean): EditorState = 
+      copy(draggingScrollbar = f(draggingScrollbar))
+
+   def mapHoveringScrollbar(f: Boolean => Boolean): EditorState = 
+      copy(hoveringScrollbar = f(hoveringScrollbar))
+
+   def mapGutterWidth(f: Int => Int): EditorState = 
+      copy(gutterWidth = f(gutterWidth))
+
+object EditorState:
+
+   final val defaultGutterWidth: Int = 40
+
+   def initial: EditorState = EditorState(
+      caret      = Caret.zero,
+      selection  = Selection.zero,
+      scroll     = Scroll.zero,
+   )
 
 /**
   * 
@@ -44,6 +73,12 @@ case class Selection(
 
    def nonEmpty: Boolean = !isEmpty
 
+   def mapAnchor(f: Position => Position): Selection = 
+      copy(anchor = f(anchor))
+
+   def mapActive(f: Position => Position): Selection = 
+      copy(active = f(active))
+
 object Selection:
 
    def zero: Selection = 
@@ -66,8 +101,11 @@ case class Caret(
    def checkDesiredColumn(pred: Int => Boolean): Boolean =
       desiredColumn.filter(pred).isDefined
 
+   def mapDesiredColumn(f: Option[Int] => Option[Int]): Caret = 
+      copy(desiredColumn = f(desiredColumn))
+
    def moveTo(line: Int, col: Int): Caret =
-      this.copy(position = Position(line, col))
+      copy(position = Position(line, col))
 
 object Caret:
 
@@ -79,7 +117,19 @@ case class Scroll(
    dragging: Boolean = false,
    dragStartY: Int = 0,
    dragStartScrollY: Int = 0
-)
+):
+
+   def mapY(f: Int => Int): Scroll = 
+      copy(y = f(y))
+
+   def mapDragging(f: Boolean => Boolean): Scroll = 
+      copy(dragging = f(dragging))
+
+   def mapDragStartY(f: Int => Int): Scroll = 
+      copy(dragStartY = f(dragStartY))
+
+   def mapDragStartScrollY(f: Int => Int): Scroll = 
+      copy(dragStartScrollY = f(dragStartScrollY))
 
 object Scroll:
 

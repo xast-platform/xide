@@ -48,6 +48,8 @@ object EditorSwingAdapter:
          case Key.C if ctrl => Some(A.Copy)
          case Key.X if ctrl => Some(A.Cut)
          case Key.V if ctrl => Some(A.Paste)
+         case Key.Z if ctrl => Some(A.Undo)
+         case Key.Y if ctrl => Some(A.Redo)
 
          case _             => None
 

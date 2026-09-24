@@ -43,5 +43,10 @@ tasks.withType<Javadoc>().configureEach {
 }
 
 tasks.withType<org.gradle.api.tasks.scala.ScalaCompile>().configureEach {
-    scalaCompileOptions.additionalParameters = listOf("-Wunused:all")
+    scalaCompileOptions.additionalParameters = listOf(
+        "-Wunused:all",
+        "-Wnonunit-statement",
+        "-Wvalue-discard",
+        "-Wconf:id=E175:e,id=E176:e",
+    )
 }

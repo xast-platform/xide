@@ -17,6 +17,8 @@ enum EditorAction:
    case Copy
    case Cut
    case Paste
+   case Undo
+   case Redo
 
    case MousePressed(x: Int, y: Int, shift: Boolean)
    case MouseDragged(x: Int, y: Int)
