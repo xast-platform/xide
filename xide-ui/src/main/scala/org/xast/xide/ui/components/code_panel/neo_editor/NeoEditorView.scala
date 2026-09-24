@@ -38,6 +38,6 @@ class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelVie
       editorStatus,
       () => eventBus.publish(new FileSaveRequestedEvent(file, false)),
    )
-   add(neoEditor, BorderLayout.CENTER)
+   add(neoEditor.component, BorderLayout.CENTER)
 
    override def model(): FileModel = new TextFileModel(neoEditor.getContent)

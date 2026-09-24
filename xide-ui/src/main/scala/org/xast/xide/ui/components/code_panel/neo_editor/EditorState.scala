@@ -3,7 +3,7 @@ package org.xast.xide.ui.components.code_panel.neo_editor
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 case class EditorState(
-   cursor: Cursor,
+   caret: Caret,
    selection: Option[Selection],
    scroll: Scroll,
    draggingSelection: Boolean,
@@ -31,7 +31,10 @@ object Position:
   * @param anchor
   * @param active
   */
-case class Selection(anchor: Position, active: Position):
+case class Selection(
+   anchor: Position, 
+   active: Position,
+):
 
    def start: Position = anchor.min(active)
 
@@ -46,8 +49,8 @@ object Selection:
    def zero: Selection = 
       Selection(Position.zero, Position.zero)
 
-   def reset(cursor: Cursor): Selection =
-      Selection(cursor.position, cursor.position)
+   def reset(caret: Caret): Selection =
+      Selection(caret.position, caret.position)
 
 /**
   * 
@@ -55,15 +58,21 @@ object Selection:
   * @param position
   * @param desiredColumn
   */
-case class Cursor(
+case class Caret(
    position: Position,
    desiredColumn: Option[Int] = None,
-)
+):
 
-object Cursor:
+   def checkDesiredColumn(pred: Int => Boolean): Boolean =
+      desiredColumn.filter(pred).isDefined
 
-   def zero: Cursor =
-      Cursor(Position.zero)
+   def moveTo(line: Int, col: Int): Caret =
+      this.copy(position = Position(line, col))
+
+object Caret:
+
+   def zero: Caret =
+      Caret(Position.zero)
 
 case class Scroll(
    y: Int,

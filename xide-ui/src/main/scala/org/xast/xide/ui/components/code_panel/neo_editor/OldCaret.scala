@@ -10,11 +10,11 @@ import org.xast.xide.core.event.ThemeChangedEvent
 import org.xast.xide.ui.components.RepaintRegion
 import org.xast.xide.ui.utils.XideStyle
 
-object Caret:
+object OldCaret:
    private val BLINK_INTERVAL_MS: Int = 500
 
-class Caret(val eventBus: EventBus, val repaintRegion: RepaintRegion):
-   import Caret.*
+class OldCaret(val eventBus: EventBus, val repaintRegion: RepaintRegion):
+   import OldCaret.*
 
    private var deltaX: Int = 0
    private var deltaY: Int = 0

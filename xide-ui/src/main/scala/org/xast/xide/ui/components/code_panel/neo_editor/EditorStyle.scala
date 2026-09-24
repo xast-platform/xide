@@ -9,5 +9,5 @@ case class EditorStyle(
    fontMetrics: FontMetrics,
    fontColor: Color,
    bgColor: Color,
-   style: XideStyle,
+   xideStyle: XideStyle,
 )
