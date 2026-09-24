@@ -4,9 +4,9 @@ import scala.math.Ordering.Implicits.infixOrderingOps
 
 case class EditorState(
    caret: Caret,
-   selection: Option[Selection],
+   selection: Selection,
    scroll: Scroll,
-   draggingSelection: Boolean,
+   draggingScrollbar: Boolean,
    hoveringScrollbar: Boolean
 )
 
@@ -80,3 +80,8 @@ case class Scroll(
    dragStartY: Int = 0,
    dragStartScrollY: Int = 0
 )
+
+object Scroll:
+
+   def zero: Scroll =
+      Scroll(0)

@@ -1,39 +1,61 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
-import java.awt.Color
-import java.awt.Cursor
-import java.awt.Font
-import java.awt.FontMetrics
-import java.awt.Graphics
-import java.awt.Graphics2D
-import java.awt.Rectangle
-import java.awt.RenderingHints
-import java.awt.Toolkit
-import java.awt.datatransfer.DataFlavor
-import java.awt.datatransfer.StringSelection
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
-import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
-import java.awt.event.MouseWheelEvent
-
-import javax.swing.JComponent
-import javax.swing.Timer
-
-import org.xast.xide.core.event.EventBus
-import org.xast.xide.core.event.ThemeChangedEvent
-import org.xast.xide.core.utils.Debug
 import org.xast.xide.ui.components.code_panel.neo_editor.*
-import org.xast.xide.ui.utils.XideStyle
-import scala.collection.mutable.ArrayBuffer
+import scala.swing.event.*
+import EditorAction as A
 
 object EditorSwingAdapter:
-   val FRAME_FPS = 60
-   val FRAME_INTERVAL_MS: Int = 1000 / FRAME_FPS
 
-class EditorSwingAdapter(val editor: NeoEditor)
+   val toAction: PartialFunction[Event, A] =
+      case KeyTyped(_, ch, mods, _)
+         if ch != KeyEvent.CHAR_UNDEFINED &&
+            !Character.isISOControl(ch) &&
+            !hasModifier(mods, commandMask) => A.TypeChar(ch)
+
+      case KeyPressed(_, key, mods, _)
+         if keyAction(key, mods).isDefined => keyAction(key, mods).get
+
+      case e: MousePressed => A.MousePressed(
+         e.point.x, 
+         e.point.y, 
+         hasModifier(e.modifiers, Key.Modifier.Shift),
+      )
+
+      case e: MouseDragged => A.MouseDragged(e.point.x, e.point.y)
+      
+      case e: MouseReleased => A.MouseReleased(e.point.x, e.point.y)
+
+      case e: MouseWheelMoved => A.Scroll(e.rotation)
+
+   private def keyAction(key: Key.Value, mods: Int): Option[A] =
+      val ctrl  = hasModifier(mods, Key.Modifier.Control)
+      val shift = hasModifier(mods, Key.Modifier.Shift)
+
+      key match
+         case Key.BackSpace => Some(A.Backspace)
+         case Key.Delete    => Some(A.Delete)
+         case Key.Enter     => Some(A.Enter)
+
+         case Key.Left      => Some(A.MoveLeft(shift))
+         case Key.Right     => Some(A.MoveRight(shift))
+         case Key.Up        => Some(A.MoveUp(shift))
+         case Key.Down      => Some(A.MoveDown(shift))
+         case Key.Home      => Some(A.PressHome(shift))
+         case Key.End       => Some(A.PressEnd(shift))
+
+         case Key.A if ctrl => Some(A.SelectAll)
+         case Key.C if ctrl => Some(A.Copy)
+         case Key.X if ctrl => Some(A.Cut)
+         case Key.V if ctrl => Some(A.Paste)
+
+         case _             => None
+
+   private def hasModifier(mods: Int, m: Int) = 
+      (mods & m) != 0
+
+   private val commandMask = 
+      Key.Modifier.Control | Key.Modifier.Alt | Key.Modifier.Meta
 
    
 

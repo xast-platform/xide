@@ -6,12 +6,12 @@ enum EditorAction:
    case Delete
    case Enter
 
-   case MoveLeft
-   case MoveRight
-   case MoveUp
-   case MoveDown
-   case PressHome
-   case PressEnd
+   case MoveLeft(shift: Boolean)
+   case MoveRight(shift: Boolean)
+   case MoveUp(shift: Boolean)
+   case MoveDown(shift: Boolean)
+   case PressHome(shift: Boolean)
+   case PressEnd(shift: Boolean)
 
    case SelectAll
    case Copy

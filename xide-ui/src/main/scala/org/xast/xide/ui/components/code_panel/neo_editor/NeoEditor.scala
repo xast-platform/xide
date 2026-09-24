@@ -29,6 +29,7 @@ import org.xast.xide.ui.utils.XideStyle
 import scala.collection.mutable.ArrayBuffer
 import scala.swing.Component
 import java.awt.Color
+import scala.swing.event.UIElementResized
 
 object NeoEditor:
 
@@ -52,33 +53,42 @@ class NeoEditor(
    def component: JComponent = peer
 
    private val pieceTable = new PieceTable(content)
+   private var style: EditorStyle = createStyle
+   
    private var selection: Selection = Selection.zero
    private var caret: Caret = Caret.zero
-   private var style: EditorStyle = createStyle
-
+   private var scroll: Scroll = Scroll.zero
+   private var draggingScrollbar: Boolean = false
    private var hoveringScrollbar: Boolean = false
-   private var draggingSelection: Boolean = false
+
    private var totalLines: Int = 1
    private var gutterWidth: Int = 40
-   private var scrollY: Int = 0
-   private var draggingScrollbar: Boolean = false
-   private var dragStartY: Int = 0
-   private var dragStartScrollY: Int = 0
 
    focusable = true
    cursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR)
    refreshMetrics()
 
-   // addMouseListener(mouseHandler)
-   // addMouseMotionListener(mouseHandler)
-   // addMouseWheelListener(mouseHandler)
+   listenTo(
+      mouse.clicks, 
+      mouse.moves, 
+      mouse.wheel, 
+      keys, 
+      this,
+   )
 
-   // addComponentListener(new ComponentAdapter():
-   //    override def componentResized(e: ComponentEvent): Unit = {
-   //       clampScrollY()
-   //       invalidateAll()
-   //    }
-   // )
+   // Swing adapter reactions (mouse, keyboard)
+   reactions += EditorSwingAdapter.toAction.andThen(dispatch)
+
+   // Component-wise reactions
+   reactions += {
+      case UIElementResized(_) =>
+         clampScrollY()
+         invalidateAll()
+   }
+
+   // TODO: editor events dispatch
+   private def dispatch(action: EditorAction): Unit =
+      {}
 
    // addKeyListener(new KeyAdapter():
    //    override def keyTyped(e: KeyEvent): Unit = {
@@ -229,8 +239,8 @@ class NeoEditor(
 
    private def invalidateLines(fromLine: Int, toLine: Int): Unit = {
       val lineHeight = style.fontMetrics.getHeight()
-      val top = fromLine * lineHeight - scrollY
-      val bottom = (toLine + 1) * lineHeight - scrollY
+      val top = fromLine * lineHeight - scroll.y
+      val bottom = (toLine + 1) * lineHeight - scroll.y
       invalidateRect(0, top, Math.max(size.width, 1), bottom - top)
    }
 
@@ -258,7 +268,7 @@ class NeoEditor(
       val lineHeight = style.fontMetrics.getHeight()
 
       val adjustedX = x - gutterWidth
-      val adjustedY = y + scrollY
+      val adjustedY = y + scroll.y
 
       val line = Math.max(0, Math.min(adjustedY / lineHeight, totalLines - 1))
       val rawCh = Math.max(0, (adjustedX + 5) / charWidth)
@@ -414,7 +424,7 @@ class NeoEditor(
       g2d.setColor(background)
       g2d.fillRect(0, 0, width, height)
 
-      val firstVisibleLine = Math.max(0, scrollY / lineHeight)
+      val firstVisibleLine = Math.max(0, scroll.y / lineHeight)
       val visibleLineSlots = height / lineHeight + 2
       val lastVisibleLine = Math.min(totalLines, firstVisibleLine + visibleLineSlots)
 
@@ -424,7 +434,7 @@ class NeoEditor(
       val contentG = g2d.create(contentX, 0, contentWidth, height).asInstanceOf[Graphics2D]
       contentG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
       contentG.setFont(font)
-      contentG.translate(0, -scrollY)
+      contentG.translate(0, -scroll.y)
 
       paintSelection(contentG, firstVisibleLine, lastVisibleLine, lineHeight)
       // caret.paintComponent(contentG)
@@ -480,7 +490,7 @@ class NeoEditor(
       for (lineIndex <- firstVisibleLine until lastVisibleLine) {
          val label = String.valueOf(lineIndex + 1)
          val textWidth = style.fontMetrics.stringWidth(label)
-         val y = lineHeight * lineIndex - scrollY + style.fontMetrics.getAscent()
+         val y = lineHeight * lineIndex - scroll.y + style.fontMetrics.getAscent()
          g2d.drawString(label, gutterWidth - textWidth - GUTTER_RIGHT_MARGIN, y)
       }
 
@@ -506,7 +516,7 @@ class NeoEditor(
       val thumbHeight = computeThumbHeight(height, contentHeight)
       val maxScrollY = contentHeight - height
       val maxThumbY = height - thumbHeight
-      val thumbY = if (maxScrollY <= 0) 0 else (scrollY.toLong * maxThumbY / maxScrollY).toInt
+      val thumbY = if (maxScrollY <= 0) 0 else (scroll.y.toLong * maxThumbY / maxScrollY).toInt
 
       g2d.setColor(
          if (hoveringScrollbar || draggingScrollbar)
@@ -539,31 +549,33 @@ class NeoEditor(
       setScrollY(if (maxThumbY == 0) 0 else (desiredThumbY.toLong * maxScrollY / maxThumbY).toInt)
 
       draggingScrollbar = true
-      dragStartY = clickY
-      dragStartScrollY = scrollY
+      scroll = scroll.copy(
+         dragStartY = clickY, 
+         dragStartScrollY = scroll.y,
+      )
    }
 
    private def ensureCaretVisible(): Unit = {
       val lineHeight = style.fontMetrics.getHeight()
       val caretTop = caret.position.line * lineHeight
       val caretBottom = caretTop + lineHeight
-      val previousScrollY = scrollY
+      val previousScrollY = scroll.y
 
-      if (caretTop < scrollY) {
-         scrollY = caretTop
-      } else if (caretBottom > scrollY + size.height) {
-         scrollY = caretBottom - size.height
+      if (caretTop < scroll.y) {
+         scroll = scroll.copy(y = caretTop)
+      } else if (caretBottom > scroll.y + size.height) {
+         scroll = scroll.copy(y = caretBottom - size.height)
       }
 
       clampScrollY()
 
-      if (scrollY != previousScrollY) {
+      if (scroll.y != previousScrollY) {
          invalidateAll()
       }
    }
 
    private def setScrollY(value: Int): Unit = {
-      scrollY = value
+      scroll = scroll.copy(y = value)
       clampScrollY()
       invalidateAll()
    }
@@ -571,7 +583,7 @@ class NeoEditor(
    private def clampScrollY(): Unit = {
       val lineHeight = style.fontMetrics.getHeight()
       val maxScrollY = Math.max(0, totalLines * lineHeight - size.height)
-      scrollY = Math.max(0, Math.min(scrollY, maxScrollY))
+      scroll = scroll.copy(y = Math.max(0, Math.min(scroll.y, maxScrollY)))
    }
 
    private def updateGutterWidth(): Unit = {
