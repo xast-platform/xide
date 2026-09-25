@@ -26,6 +26,8 @@ enum Effect:
    case CopyToClipboard(text: String)
    case RequestPaste
    case TextChanged
+   case UpdateEditorStatus(currentChar: Int, currentLine: Int)
+   case RequestFocus
 
 enum RepaintAmount:
    case All
@@ -36,36 +38,36 @@ object EditorLogic:
    def update(
       pieceTable: MutablePieceTable,
       state: EditorState,
-      style: EditorStyle,
+      metrics: EditorStyleMetrics,
       action: EditorAction,
    ): Effectful[EditorState] = action match
       case TypeChar(c) =>
          val newState = state
             |> when(_.selection.nonEmpty, deleteSelection(pieceTable))
-            |> insertChar(c, pieceTable)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> insertChar(pieceTable, c)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
 
       case Backspace => 
          val newState = state
-            |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteBackward(style, pieceTable))
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteBackward(metrics, pieceTable))
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
 
       case Delete =>
          val newState = state
-            |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteForward(style, pieceTable))
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteForward(metrics, pieceTable))
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
 
       case Enter =>
          val newState = state
             |> when(_.selection.nonEmpty, deleteSelection(pieceTable))
-            |> insertNewline(pieceTable, style)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> insertNewline(pieceTable, metrics)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
       
@@ -73,7 +75,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretLeft(pieceTable)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -81,7 +83,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretRight(pieceTable)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -89,7 +91,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretVertical(pieceTable, 1)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -97,7 +99,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretVertical(pieceTable, -1)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -105,7 +107,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretHome
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -113,30 +115,28 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretEnd(pieceTable)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case SelectAll =>
          val newState = state
             |> selectAllLines(pieceTable)
-            |> ensureCaretVisible(style, pieceTable.lineCount)
+            |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case Copy => 
-         val text = state 
-            |> getSelectedText(pieceTable)
+         val text = state |> getSelectedText(pieceTable)
 
          (state, List(Effect.CopyToClipboard(text)))
 
       case Cut =>
          if state.selection.nonEmpty then
-            val text = state 
-               |> getSelectedText(pieceTable)
+            val text = state |> getSelectedText(pieceTable)
             val newState = state
                |> deleteSelection(pieceTable)
-               |> ensureCaretVisible(style, pieceTable.lineCount)
+               |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
             (
                newState, 
@@ -145,10 +145,125 @@ object EditorLogic:
          else
             Effectful.pure(state)
 
-      case Paste => 
-         throw new RuntimeException("Paste is not modelled functionally yet")
+      case RequestPaste => 
+         (state, List(Effect.RequestPaste))
+
+      case Paste(pastedText) =>
+         val newState = state
+            |> when(_.selection.nonEmpty, deleteSelection(pieceTable))
+            |> insertText(pieceTable, metrics, pastedText)
+
+         (
+            newState, 
+            List(Effect.TextChanged),
+         )
+
+      case MousePressed(x, y, shift) =>
+         if scrollbarVisible(metrics, pieceTable.lineCount) && isOverScrollbar(metrics, x) then
+            val newState = state |> beginScrollbarDrag(metrics, pieceTable.lineCount, y)
+
+            (newState, List(Effect.RequestFocus))    
+         else
+            val clicked = state |> pointToPiecePos(pieceTable, metrics, x, y)
+
+            val newState = 
+               if shift then state 
+                  |> beginSelectionIfNeeded
+                  |> (s => s.mapCaret(_.moveTo(clicked.ch, clicked.line)))
+                  |> ensureCaretVisible(metrics, pieceTable.lineCount)
+               else state
+                  |> resetSelection
+                  |> (s => 
+                        s.copy(
+                           selection = s.selection.mapAnchor(_ => Position(clicked.ch, clicked.line)),
+                           caret = s.caret.moveTo(clicked.ch, clicked.line),
+                        )
+                     )
+                  // draggingSelection = true
+                  |> ensureCaretVisible(metrics, pieceTable.lineCount)
+
+            (
+               newState,
+               List(
+                  Effect.RequestFocus,
+                  Effect.UpdateEditorStatus(clicked.ch + 1, clicked.line + 1)
+               )
+            )
 
       case _ => Effectful.pure(state)
+
+   def beginScrollbarDrag(
+      metrics: EditorStyleMetrics,
+      lineCount: Int,
+      clickY: Int,
+   )(state: EditorState): EditorState =
+      val lineHeight = metrics.fontMetrics.getHeight()
+      val contentHeight = lineCount * lineHeight
+      val trackHeight = metrics.size.height
+      val thumbHeight = EditorStyleMetrics.computeThumbHeight(trackHeight, contentHeight)
+      val maxThumbY = Math.max(1, trackHeight - thumbHeight)
+      val maxScrollY = Math.max(0, contentHeight - trackHeight)
+      val desiredThumbY = Math.max(0, Math.min(maxThumbY, clickY - thumbHeight / 2))
+      val scrolled = state |> setScrollY(metrics, lineCount,
+         if maxThumbY == 0 then 
+            0 
+         else 
+            (desiredThumbY.toLong * maxScrollY / maxThumbY).toInt
+      )
+
+      state.copy(
+         draggingScrollbar = true,
+         scroll = state.scroll.copy(
+            dragStartY = clickY, 
+            dragStartScrollY = state.scroll.y,
+         ),
+      )
+
+   def setScrollY(
+      metrics: EditorStyleMetrics,
+      lineCount: Int,
+      value: Int,
+   )(state: EditorState): EditorState = 
+      state.mapScroll(_.mapY(_ => clampScrollY(metrics, lineCount)(value)))
+
+   def isOverScrollbar(metrics: EditorStyleMetrics, x: Int): Boolean = 
+      x >= metrics.size.width - EditorStyleMetrics.scrollbarWidth
+
+   def scrollbarVisible(metrics: EditorStyleMetrics, lineCount: Int): Boolean =
+      lineCount * metrics.fontMetrics.getHeight() > metrics.size.height
+
+   def pointToPiecePos(
+      pieceTable: MutablePieceTable,
+      metrics: EditorStyleMetrics,
+      x: Int, 
+      y: Int,
+   )(state: EditorState): PiecePos = 
+      val charWidth = metrics.fontMetrics.charWidth('W')
+      val lineHeight = metrics.fontMetrics.getHeight()
+
+      val adjustedX = x - state.gutterWidth
+      val adjustedY = y + state.scroll.y
+
+      val line = Math.max(0, Math.min(adjustedY / lineHeight, pieceTable.lineCount - 1))
+      val rawCh = Math.max(0, (adjustedX + 5) / charWidth)
+      val lineLength = if (line < pieceTable.lines.size) pieceTable.lines(line).length() else 0
+      val ch = Math.max(0, Math.min(rawCh, lineLength))
+
+      PiecePos(line, ch)
+
+   def insertText(
+      pieceTable: MutablePieceTable, 
+      metrics: EditorStyleMetrics,
+      text: String,
+   )(state: EditorState): EditorState = 
+      text.foldLeft(state) { (state, c) =>
+         if c == '\n' then 
+            state |> insertNewline(pieceTable, metrics)
+         else if c != '\r' then 
+            state |> insertChar(pieceTable, c)
+         else
+            state
+      }
 
    def selectAllLines(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
       val lastLine = pieceTable.lineCount - 1
@@ -246,7 +361,7 @@ object EditorLogic:
 
    def insertNewline(
       pieceTable: MutablePieceTable, 
-      style: EditorStyle,
+      metrics: EditorStyleMetrics,
    )(state: EditorState): EditorState = 
       val x = state.caret.position.col
       val y = state.caret.position.line
@@ -254,13 +369,13 @@ object EditorLogic:
       pieceTable.insert("\n", new PiecePos(y, x))
 
       state.copy(
-         scroll = state.scroll.mapY(clampScrollY(style, pieceTable.lineCount)),
+         scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
          caret = state.caret.moveTo(0, y + 1),
-         gutterWidth = updatedGutterWidth(style, pieceTable.lineCount),
+         gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
       )
 
    def deleteForward(
-      style: EditorStyle, 
+      metrics: EditorStyleMetrics, 
       pieceTable: MutablePieceTable,
    )(state: EditorState): EditorState =
       val x = state.caret.position.col
@@ -274,14 +389,14 @@ object EditorLogic:
       else if y < lastLineIndex then
          pieceTable.delete(new PiecePos(y + 1, 0))
          state.copy(
-            scroll = state.scroll.mapY(clampScrollY(style, pieceTable.lineCount)),
-            gutterWidth = updatedGutterWidth(style, pieceTable.lineCount),
+            scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
+            gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
          )
       else
          state
 
    def deleteBackward(
-      style: EditorStyle, 
+      metrics: EditorStyleMetrics, 
       pieceTable: MutablePieceTable,
    )(state: EditorState): EditorState =
       val x = state.caret.position.col
@@ -298,8 +413,8 @@ object EditorLogic:
          state.mapCaret(_.moveTo(x - 1, y))
       else if y > 0 then
          state.copy(
-            gutterWidth = updatedGutterWidth(style, pieceTable.lineCount),
-            scroll = state.scroll.mapY(clampScrollY(style, pieceTable.lineCount)),
+            gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
+            scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
             caret = state.caret.moveTo(prevLineLengthBeforeMerge, y - 1),
          )
       else
@@ -323,8 +438,8 @@ object EditorLogic:
          )
 
    def insertChar(
-      ch: Char,
       pieceTable: MutablePieceTable,
+      ch: Char,
    )(state: EditorState): EditorState =
       val x = state.caret.position.col
       val y = state.caret.position.line
@@ -333,10 +448,10 @@ object EditorLogic:
       state.mapCaret(_.moveTo(x + 1, y))
 
    def ensureCaretVisible(
-      style: EditorStyle,
+      metrics: EditorStyleMetrics,
       lineCount: Int,
    )(state: EditorState): EditorState =
-      val lineHeight = style.fontMetrics.getHeight()
+      val lineHeight = metrics.fontMetrics.getHeight()
       val caretTop = state.caret.position.line * lineHeight
       val caretBottom = caretTop + lineHeight
       val previousScrollY = state.scroll.y
@@ -344,22 +459,22 @@ object EditorLogic:
       val scrolled = 
          if caretTop < state.scroll.y then
             state.mapScroll(_.mapY(_ => caretTop))
-         else if caretBottom > state.scroll.y + style.size.height then
-            state.mapScroll(_.mapY(_ => caretBottom - style.size.height))
+         else if caretBottom > state.scroll.y + metrics.size.height then
+            state.mapScroll(_.mapY(_ => caretBottom - metrics.size.height))
          else
             state
 
-      scrolled.mapScroll(_.mapY(clampScrollY(style, lineCount)))
+      scrolled.mapScroll(_.mapY(clampScrollY(metrics, lineCount)))
 
    def clampScrollY(
-      style: EditorStyle, 
+      metrics: EditorStyleMetrics, 
       lineCount: Int,
    ): Int => Int =
-      val lineHeight = style.fontMetrics.getHeight()
-      val maxScrollY = Math.max(0, lineCount * lineHeight - style.size.height)
+      val lineHeight = metrics.fontMetrics.getHeight()
+      val maxScrollY = Math.max(0, lineCount * lineHeight - metrics.size.height)
       
       y => Math.max(0, Math.min(y, maxScrollY))
 
-   def updatedGutterWidth(style: EditorStyle, lineCount: Int): Int =
+   def updatedGutterWidth(metrics: EditorStyleMetrics, lineCount: Int): Int =
       val digits = Math.max(2, String.valueOf(lineCount).length())
-      EditorStyle.gutterPadding + digits * style.fontMetrics.charWidth('0') + EditorStyle.gutterRightMargin
+      EditorStyleMetrics.gutterPadding + digits * metrics.fontMetrics.charWidth('0') + EditorStyleMetrics.gutterRightMargin

@@ -16,7 +16,8 @@ enum EditorAction:
    case SelectAll
    case Copy
    case Cut
-   case Paste
+   case RequestPaste
+   case Paste(pastedText: String)
    case Undo
    case Redo
 

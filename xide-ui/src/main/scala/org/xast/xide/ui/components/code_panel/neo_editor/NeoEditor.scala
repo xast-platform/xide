@@ -18,19 +18,14 @@ import org.xast.xide.ui.components.code_panel.neo_editor.*
 import scala.swing.Component
 import scala.swing.event.UIElementResized
 
-import NeoEditor.*
-
-object NeoEditor:
-
-   private val SCROLLBAR_WIDTH: Int = 16
-   private val SCROLLBAR_MIN_THUMB: Int = 20
-   private val SCROLL_LINES_PER_NOTCH: Int = 2
+import java.awt.datatransfer.DataFlavor
+import org.xast.xide.ui.components.code_panel.neo_editor.Effect.UpdateEditorStatus
    
 class NeoEditor(
    val eventBus: EventBus,
    val content: String,
    val editorStatus: NeoEditorStatus,
-   val textChangeListener: () => Unit,
+   val onTextChange: () => Unit,
 ) extends Component:
 
    // FIXME: TEMPORARY PEER
@@ -39,8 +34,8 @@ class NeoEditor(
    private val pieceTable = 
       new MutablePieceTable(content)
 
-   private var style: EditorStyle = 
-      EditorStyle.initial(this)
+   private var style: EditorStyleMetrics = 
+      EditorStyleMetrics.initial(this)
 
    private var state: EditorState = 
       EditorState.initial |> refreshMetrics
@@ -63,6 +58,7 @@ class NeoEditor(
    reactions += {
       case UIElementResized(_) =>
          state = state.mapScroll(_.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)))
+         style = style.copy(size = this.size)
          repaintFull()
    }
 
@@ -86,12 +82,27 @@ class NeoEditor(
                .setContents(new StringSelection(text), null)
          catch
             case e: Exception =>
-               Debug.error("copySelection failed: " + e)
+               Debug.error("Selection copy failed: " + e)
 
-      case Effect.RequestPaste => {}
+      case Effect.RequestPaste => 
+         try
+            val text = Toolkit.getDefaultToolkit()
+               .getSystemClipboard()
+               .getData(DataFlavor.stringFlavor)
+               .asInstanceOf[String]
 
-      case Effect.TextChanged => 
-         textChangeListener()
+            dispatch(EditorAction.Paste(text))
+         catch
+            case e: Exception =>
+               Debug.error("Paste failed: " + e)
+
+      case Effect.TextChanged => onTextChange()
+
+      case Effect.UpdateEditorStatus(currentChar, currentLine) =>
+         editorStatus.setCurrentChar(currentChar)
+         editorStatus.setCurrentLine(currentLine)
+
+      case Effect.RequestFocus => requestFocus()
 
    def repaintDiff(
       prev: EditorState,
@@ -106,37 +117,6 @@ class NeoEditor(
       //    repaintRect(rect)
 
    // private val mouseHandler: MouseAdapter = new MouseAdapter():
-
-      // override def mousePressed(e: MouseEvent): Unit = {
-      //    editor.requestFocus()
-      //    val x = e.getX()
-      //    val y = e.getY()
-
-      //    if editor.scrollbarVisible && editor.isOverScrollbar(x) then
-      //       beginScrollbarDrag(y)
-      //       return
-
-      //    val prevSelection = selectionLinesOrEmpty()
-      //    val clicked = pointToPiecePos(x, y)
-
-      //    if (e.isShiftDown()) {
-      //       beginSelectionIfNeeded()
-      //       caret.moveTo(clicked.col, clicked.line)
-      //       hasSelection = clicked != anchorPos()
-      //    } else {
-      //       clearSelection()
-      //       selAnchorX = clicked.col
-      //       selAnchorY = clicked.line
-      //       caret.moveTo(clicked.col, clicked.line)
-      //       draggingSelection = true
-      //    }
-
-      //    editorStatus.setCurrentChar(clicked.col + 1)
-      //    editorStatus.setCurrentLine(clicked.line + 1)
-      //    ensureCaretVisible()
-      //    invalidateSelectionChange(prevSelection)
-      // }
-
       // override def mouseMoved(e: MouseEvent): Unit = {
       //    val nowHovering = isScrollbarVisible() && isOverScrollbar(e.getX())
       //    if (nowHovering != hoveringScrollbar) {
@@ -184,7 +164,7 @@ class NeoEditor(
 
       // override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
       //    val lineHeight = fm.getHeight()
-      //    setScrollY(scrollY + e.getWheelRotation() * lineHeight * SCROLL_LINES_PER_NOTCH)
+      //    setScrollY(scrollY + e.getWheelRotation() * lineHeight * scrollLinesPerNotch)
       // }
 
    private def invalidateLines(fromLine: Int, toLine: Int): Unit = {
@@ -212,41 +192,6 @@ class NeoEditor(
          case (Some((a1, b1)), Some((a2, b2))) => invalidateLines(Math.min(a1, a2), Math.max(b1, b2))
       }
    }
-
-   private def pointToPiecePos(x: Int, y: Int): PiecePos = {
-      val charWidth = style.fontMetrics.charWidth('W')
-      val lineHeight = style.fontMetrics.getHeight()
-
-      val adjustedX = x - state.gutterWidth
-      val adjustedY = y + state.scroll.y
-
-      val line = Math.max(0, Math.min(adjustedY / lineHeight, pieceTable.lineCount - 1))
-      val rawCh = Math.max(0, (adjustedX + 5) / charWidth)
-      val lineLength = if (line < pieceTable.lines.size) pieceTable.lines(line).length() else 0
-      val ch = Math.max(0, Math.min(rawCh, lineLength))
-
-      PiecePos(line, ch)
-   }
-
-   // private def pasteClipboard(): Unit = {
-   //    try {
-   //       val text = Toolkit.getDefaultToolkit()
-   //          .getSystemClipboard().getData(DataFlavor.stringFlavor).asInstanceOf[String]
-   //       if state.selection.nonEmpty then
-   //          state = deleteSelection(state, pieceTable)
-   //       insertText(text)
-   //    } catch {
-   //       case _: Exception =>
-   //    }
-   // }
-
-   // private def insertText(text: String): Unit = {
-   //    for (i <- 0 until text.length()) {
-   //       val c = text.charAt(i)
-   //       if (c == '\n') insertNewline()
-   //       else if (c != '\r') insertChar(c)
-   //    }
-   // }
 
    private def refreshMetrics(state: EditorState): EditorState =
       state.copy(
@@ -284,7 +229,7 @@ class NeoEditor(
       val lastVisibleLine = Math.min(pieceTable.lineCount, firstVisibleLine + visibleLineSlots)
 
       val contentX = state.gutterWidth
-      val contentWidth = Math.max(0, width - state.gutterWidth - SCROLLBAR_WIDTH)
+      val contentWidth = Math.max(0, width - state.gutterWidth - EditorStyleMetrics.scrollbarWidth)
 
       val contentG = g2d.create(contentX, 0, contentWidth, height).asInstanceOf[Graphics2D]
       contentG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
@@ -346,7 +291,7 @@ class NeoEditor(
          val label = String.valueOf(lineIndex + 1)
          val textWidth = style.fontMetrics.stringWidth(label)
          val y = lineHeight * lineIndex - state.scroll.y + style.fontMetrics.getAscent()
-         g2d.drawString(label, state.gutterWidth - textWidth - EditorStyle.gutterRightMargin, y)
+         g2d.drawString(label, state.gutterWidth - textWidth - EditorStyleMetrics.gutterRightMargin, y)
       }
 
       g2d.setColor(style.xideStyle.shiftAccent(0.15f))
@@ -359,16 +304,16 @@ class NeoEditor(
          return
       }
 
-      val trackX = width - SCROLLBAR_WIDTH
+      val trackX = width - EditorStyleMetrics.scrollbarWidth
       g2d.setColor(
          if style.xideStyle.isDarkTheme then 
             new Color(255, 255, 255, 30) 
          else 
             new Color(0, 0, 0, 40)
       )
-      g2d.fillRect(trackX, 0, SCROLLBAR_WIDTH, height)
+      g2d.fillRect(trackX, 0, EditorStyleMetrics.scrollbarWidth, height)
 
-      val thumbHeight = computeThumbHeight(height, contentHeight)
+      val thumbHeight = EditorStyleMetrics.computeThumbHeight(height, contentHeight)
       val maxScrollY = contentHeight - height
       val maxThumbY = height - thumbHeight
       val thumbY = if (maxScrollY <= 0) 0 else (state.scroll.y.toLong * maxThumbY / maxScrollY).toInt
@@ -379,41 +324,7 @@ class NeoEditor(
          else
             style.xideStyle.shiftAccent(0.35f)
       )
-      g2d.fillRect(trackX + 2, thumbY, SCROLLBAR_WIDTH - 4, thumbHeight)
-   }
-
-   private def computeThumbHeight(trackHeight: Int, contentHeight: Int): Int = {
-      Math.max(SCROLLBAR_MIN_THUMB, (trackHeight.toLong * trackHeight / contentHeight).toInt)
-   }
-
-   def scrollbarVisible: Boolean =
-      pieceTable.lineCount * style.fontMetrics.getHeight() > size.height
-
-   def isOverScrollbar(x: Int): Boolean = 
-      x >= size.width - SCROLLBAR_WIDTH
-
-   private def beginScrollbarDrag(clickY: Int): Unit = {
-      val lineHeight = style.fontMetrics.getHeight()
-      val contentHeight = pieceTable.lineCount * lineHeight
-      val trackHeight = size.height
-      val thumbHeight = computeThumbHeight(trackHeight, contentHeight)
-      val maxThumbY = Math.max(1, trackHeight - thumbHeight)
-      val maxScrollY = Math.max(0, contentHeight - trackHeight)
-      val desiredThumbY = Math.max(0, Math.min(maxThumbY, clickY - thumbHeight / 2))
-      setScrollY(if (maxThumbY == 0) 0 else (desiredThumbY.toLong * maxScrollY / maxThumbY).toInt)
-
-      state = state.copy(
-         draggingScrollbar = true,
-         scroll = state.scroll.copy(
-            dragStartY = clickY, 
-            dragStartScrollY = state.scroll.y,
-         ),
-      )
-   }
-
-   private def setScrollY(value: Int): Unit = {
-      state = state.mapScroll(_.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)))
-      repaintFull()
+      g2d.fillRect(trackX + 2, thumbY, EditorStyleMetrics.scrollbarWidth - 4, thumbHeight)
    }
 
    private def repaintRect(rect: Rectangle): Unit =

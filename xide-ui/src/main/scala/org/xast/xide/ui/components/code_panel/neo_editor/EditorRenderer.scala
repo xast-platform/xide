@@ -7,7 +7,7 @@ object EditorRenderer:
    def paint(
       g: Graphics2D,
       state: EditorState,
-      style: EditorStyle,
+      style: EditorStyleMetrics,
    ): Unit =
       ()
       // paintText(...)

@@ -7,7 +7,7 @@ import scala.swing.Component
 import scala.swing.Color
 import scala.swing.Dimension
 
-case class EditorStyle(
+case class EditorStyleMetrics(
    fontMetrics: FontMetrics,
    fontColor: Color,
    bgColor: Color,
@@ -15,13 +15,16 @@ case class EditorStyle(
    size: Dimension,
 )
 
-object EditorStyle:
+object EditorStyleMetrics:
 
+   final val scrollbarMinThumb: Int = 20
+   final val scrollLinesPerNotch: Int = 2
+   final val scrollbarWidth: Int = 16
    final val gutterRightMargin: Int = 28
    final val gutterPadding: Int = 32
    final val fontSize: Float = 20f
 
-   def initial(component: Component): EditorStyle =
+   def initial(component: Component): EditorStyleMetrics =
       val xideStyle = XideStyle.getCurrent()
       val fontColor = 
          if xideStyle.isDarkTheme then
@@ -35,10 +38,16 @@ object EditorStyle:
 
       component.peer.setFont(font)
 
-      EditorStyle(
+      EditorStyleMetrics(
          fontMetrics,
          fontColor,
          bgColor,
          xideStyle,
          component.size,
+      )
+
+   def computeThumbHeight(trackHeight: Int, contentHeight: Int): Int =
+      Math.max(
+         EditorStyleMetrics.scrollbarMinThumb, 
+         (trackHeight.toLong * trackHeight / contentHeight).toInt
       )
