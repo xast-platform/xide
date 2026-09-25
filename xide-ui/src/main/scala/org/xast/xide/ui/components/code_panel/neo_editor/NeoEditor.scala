@@ -2,42 +2,28 @@ package org.xast.xide.ui.components.code_panel.neo_editor
 
 import java.awt.Cursor
 import java.awt.Font
-import java.awt.FontMetrics
-import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.Toolkit
-import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
-import java.awt.event.ComponentAdapter
-import java.awt.event.ComponentEvent
-import java.awt.event.KeyAdapter
-import java.awt.event.KeyEvent
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
-import java.awt.event.MouseWheelEvent
+import java.awt.Color
 
 import javax.swing.JComponent
-import javax.swing.Timer
 
 import org.xast.xide.core.event.EventBus
-import org.xast.xide.core.event.ThemeChangedEvent
 import org.xast.xide.core.utils.Debug
 import org.xast.xide.ui.components.code_panel.neo_editor.*
-import org.xast.xide.ui.utils.XideStyle
-import scala.collection.mutable.ArrayBuffer
+
 import scala.swing.Component
-import java.awt.Color
 import scala.swing.event.UIElementResized
+
 import NeoEditor.*
 
 object NeoEditor:
 
    private val SCROLLBAR_WIDTH: Int = 16
    private val SCROLLBAR_MIN_THUMB: Int = 20
-   private val GUTTER_PADDING: Int = 32
-   private val GUTTER_RIGHT_MARGIN: Int = 28
    private val SCROLL_LINES_PER_NOTCH: Int = 2
    
 class NeoEditor(
@@ -57,11 +43,10 @@ class NeoEditor(
       EditorStyle.initial(this)
 
    private var state: EditorState = 
-      EditorState.initial
+      EditorState.initial |> refreshMetrics
 
    focusable = true
    cursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR)
-   refreshMetrics()
 
    listenTo(
       mouse.clicks, 
@@ -77,24 +62,50 @@ class NeoEditor(
    // Component-wise reactions
    reactions += {
       case UIElementResized(_) =>
-         state = state.mapScroll(_.mapY(clampScrollY))
-         invalidateAll()
+         state = state.mapScroll(_.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)))
+         repaintFull()
    }
 
-   private def dispatch(action: EditorAction): Unit =
+   def dispatch(action: EditorAction): Unit =
       val prev = state
       val (next, effects) = EditorLogic.update(pieceTable, prev, style, action)
       state = next
 
       effects.foreach(runEffect)
 
-   private def runEffect(effect: Effect): Unit =
+      repaintDiff(prev, next)
+
+   def runEffect(effect: Effect): Unit = effect match
+      case Effect.CopyToClipboard(text: String) =>
+         if state.selection.isEmpty then
+            return
+
+         try
+            Toolkit.getDefaultToolkit()
+               .getSystemClipboard()
+               .setContents(new StringSelection(text), null)
+         catch
+            case e: Exception =>
+               Debug.error("copySelection failed: " + e)
+
+      case Effect.RequestPaste => {}
+
+      case Effect.TextChanged => 
+         textChangeListener()
+
+   def repaintDiff(
+      prev: EditorState,
+      next: EditorState,
+   ): Unit =
       {}
 
-   // addKeyListener(new KeyAdapter():
-   //    override def keyTyped(e: KeyEvent): Unit = {
-   //    }
+      // case Effect.RepaintCanvas(RepaintAmount.All) => 
+      //    repaint()
 
+      // case Effect.RepaintCanvas(RepaintAmount.Rect(rect)) =>
+      //    repaintRect(rect)
+
+   // addKeyListener(new KeyAdapter():
    //    override def keyPressed(e: KeyEvent): Unit = {
    //       var textChanged = false
    //       val shift = e.isShiftDown()
@@ -102,40 +113,6 @@ class NeoEditor(
    //       val prevSelection = selectionLinesOrEmpty()
 
    //       e.getKeyCode() match {
-   //          case KeyEvent.VK_BACK_SPACE =>
-   //             if state.selection.nonEmpty then 
-   //                deleteSelection() 
-   //             else 
-   //                deleteBackward()
-
-   //             textChanged = true
-   //          case KeyEvent.VK_DELETE =>
-   //             if state.selection.nonEmpty then 
-   //                deleteSelection() 
-   //             else 
-   //                deleteForward()
-
-   //             textChanged = true
-   //          case KeyEvent.VK_ENTER =>
-   //             if state.selection.nonEmpty then 
-   //                deleteSelection()
-
-   //             insertNewline()
-   //             textChanged = true
-   //          case KeyEvent.VK_LEFT =>
-   //             if shift then
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretLeft()
-   //          case KeyEvent.VK_RIGHT =>
-   //             if shift then 
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretRight()
    //          case KeyEvent.VK_DOWN =>
    //             if shift then 
    //                beginSelectionIfNeeded() 
@@ -193,18 +170,100 @@ class NeoEditor(
    //       ensureCaretVisible()
 
    //       if (textChanged) {
-   //          invalidateAll()
+   //          repaintFull()
    //       } else {
    //          invalidateSelectionChange(prevSelection)
    //       }
    //    }
    // )
 
+   // private val mouseHandler: MouseAdapter = new MouseAdapter():
+
+      // override def mousePressed(e: MouseEvent): Unit = {
+      //    editor.requestFocus()
+      //    val x = e.getX()
+      //    val y = e.getY()
+
+      //    if editor.scrollbarVisible && editor.isOverScrollbar(x) then
+      //       beginScrollbarDrag(y)
+      //       return
+
+      //    val prevSelection = selectionLinesOrEmpty()
+      //    val clicked = pointToPiecePos(x, y)
+
+      //    if (e.isShiftDown()) {
+      //       beginSelectionIfNeeded()
+      //       caret.moveTo(clicked.col, clicked.line)
+      //       hasSelection = clicked != anchorPos()
+      //    } else {
+      //       clearSelection()
+      //       selAnchorX = clicked.col
+      //       selAnchorY = clicked.line
+      //       caret.moveTo(clicked.col, clicked.line)
+      //       draggingSelection = true
+      //    }
+
+      //    editorStatus.setCurrentChar(clicked.col + 1)
+      //    editorStatus.setCurrentLine(clicked.line + 1)
+      //    ensureCaretVisible()
+      //    invalidateSelectionChange(prevSelection)
+      // }
+
+      // override def mouseMoved(e: MouseEvent): Unit = {
+      //    val nowHovering = isScrollbarVisible() && isOverScrollbar(e.getX())
+      //    if (nowHovering != hoveringScrollbar) {
+      //       hoveringScrollbar = nowHovering
+      //       needsRepaint = true
+      //    }
+      // }
+
+      // override def mouseDragged(e: MouseEvent): Unit = {
+      //    if (draggingScrollbar) {
+      //       val lineHeight = fm.getHeight()
+      //       val contentHeight = totalLines * lineHeight
+      //       val trackHeight = getHeight()
+      //       val maxScrollY = Math.max(0, contentHeight - trackHeight)
+
+      //       if (maxScrollY == 0) {
+      //          return
+      //       }
+
+      //       val thumbHeight = computeThumbHeight(trackHeight, contentHeight)
+      //       val maxThumbY = Math.max(1, trackHeight - thumbHeight)
+      //       val deltaY = e.getY() - dragStartY
+
+      //       val deltaScroll = (deltaY.toLong * maxScrollY / maxThumbY).toInt
+      //       setScrollY(dragStartScrollY + deltaScroll)
+      //       return
+      //    }
+
+      //    if (draggingSelection) {
+      //       val prevSelection = selectionLinesOrEmpty()
+      //       val pos = pointToPiecePos(e.getX(), e.getY())
+      //       caret.moveTo(pos.col, pos.line)
+      //       hasSelection = pos != anchorPos()
+      //       editorStatus.setCurrentChar(pos.col + 1)
+      //       editorStatus.setCurrentLine(pos.line + 1)
+      //       ensureCaretVisible()
+      //       invalidateSelectionChange(prevSelection)
+      //    }
+      // }
+
+      // override def mouseReleased(e: MouseEvent): Unit = {
+      //    draggingScrollbar = false
+      //    draggingSelection = false
+      // }
+
+      // override def mouseWheelMoved(e: MouseWheelEvent): Unit = {
+      //    val lineHeight = fm.getHeight()
+      //    setScrollY(scrollY + e.getWheelRotation() * lineHeight * SCROLL_LINES_PER_NOTCH)
+      // }
+
    private def invalidateLines(fromLine: Int, toLine: Int): Unit = {
       val lineHeight = style.fontMetrics.getHeight()
       val top = fromLine * lineHeight - state.scroll.y
       val bottom = (toLine + 1) * lineHeight - state.scroll.y
-      invalidateRect(0, top, Math.max(size.width, 1), bottom - top)
+      repaintRect(new Rectangle(0, top, Math.max(size.width, 1), bottom - top))
    }
 
    private def selectionLinesOrEmpty(): Option[(Int, Int)] =
@@ -239,32 +298,6 @@ class NeoEditor(
       val ch = Math.max(0, Math.min(rawCh, lineLength))
 
       PiecePos(line, ch)
-   }
-
-   private def lineLength(line: Int): Int = {
-      if (line >= 0 && line < pieceTable.lines.size) pieceTable.lines(line).length() else 0
-   }
-
-   private def moveCaretLeft(): Unit = {
-      val x = state.caret.position.col
-      val y = state.caret.position.line
-      if (x > 0) {
-         state = state.mapCaret(_.moveTo(x - 1, y))
-      } else if (y > 0) {
-         state = state.mapCaret(_.moveTo(lineLength(y - 1), y - 1))
-      }
-      state = state.mapCaret(_.mapDesiredColumn(_ => None))
-   }
-
-   private def moveCaretRight(): Unit = {
-      val x = state.caret.position.col
-      val y = state.caret.position.line
-      if (x < lineLength(y)) {
-         state = state.mapCaret(_.moveTo(x + 1, y))
-      } else if (y < pieceTable.lineCount - 1) {
-         state = state.mapCaret(_.moveTo(0, y + 1))
-      }
-      state = state.mapCaret(_.mapDesiredColumn(_ => None))
    }
 
    private def moveCaretVertical(deltaLine: Int): Unit = {
@@ -311,48 +344,31 @@ class NeoEditor(
       sb.toString()
    }
 
-   private def copySelection(): Unit = {
-      if state.selection.isEmpty then
-         return
-      try {
-         Toolkit.getDefaultToolkit().getSystemClipboard()
-            .setContents(new StringSelection(getSelectedText()), null)
-      } catch {
-         case e: Exception =>
-            Debug.error("copySelection failed: " + e)
-      }
-   }
+   // private def pasteClipboard(): Unit = {
+   //    try {
+   //       val text = Toolkit.getDefaultToolkit()
+   //          .getSystemClipboard().getData(DataFlavor.stringFlavor).asInstanceOf[String]
+   //       if state.selection.nonEmpty then
+   //          state = deleteSelection(state, pieceTable)
+   //       insertText(text)
+   //    } catch {
+   //       case _: Exception =>
+   //    }
+   // }
 
-   private def pasteClipboard(): Unit = {
-      try {
-         val text = Toolkit.getDefaultToolkit()
-            .getSystemClipboard().getData(DataFlavor.stringFlavor).asInstanceOf[String]
-         if state.selection.nonEmpty then
-            state = deleteSelection(state, pieceTable)
-         insertText(text)
-      } catch {
-         case _: Exception =>
-      }
-   }
+   // private def insertText(text: String): Unit = {
+   //    for (i <- 0 until text.length()) {
+   //       val c = text.charAt(i)
+   //       if (c == '\n') insertNewline()
+   //       else if (c != '\r') insertChar(c)
+   //    }
+   // }
 
-   private def insertText(text: String): Unit = {
-      for (i <- 0 until text.length()) {
-         val c = text.charAt(i)
-         if (c == '\n') insertNewline()
-         else if (c != '\r') insertChar(c)
-      }
-   }
-
-   private def beginSelectionIfNeeded(): Unit =
-      if state.selection.isEmpty then
-         state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   private def refreshMetrics(): Unit = {
-      state = state.copy(
-         scroll = state.scroll.mapY(clampScrollY),
+   private def refreshMetrics(state: EditorState): EditorState =
+      state.copy(
+         scroll = state.scroll.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)),
          gutterWidth = updatedGutterWidth(),
       )
-   }
 
    override def font_=(f: Font): Unit = 
       peer.setFont(f)
@@ -446,7 +462,7 @@ class NeoEditor(
          val label = String.valueOf(lineIndex + 1)
          val textWidth = style.fontMetrics.stringWidth(label)
          val y = lineHeight * lineIndex - state.scroll.y + style.fontMetrics.getAscent()
-         g2d.drawString(label, state.gutterWidth - textWidth - GUTTER_RIGHT_MARGIN, y)
+         g2d.drawString(label, state.gutterWidth - textWidth - gutterRightMargin, y)
       }
 
       g2d.setColor(style.xideStyle.shiftAccent(0.15f))
@@ -512,65 +528,12 @@ class NeoEditor(
    }
 
    private def setScrollY(value: Int): Unit = {
-      state = state.mapScroll(_.mapY(clampScrollY))
-      invalidateAll()
+      state = state.mapScroll(_.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)))
+      repaintFull()
    }
 
-   private def updatedGutterWidth(): Int =
-      val digits = Math.max(2, String.valueOf(pieceTable.lineCount).length())
-      GUTTER_PADDING + digits * style.fontMetrics.charWidth('0') + GUTTER_RIGHT_MARGIN
+   private def repaintRect(rect: Rectangle): Unit =
+      peer.repaint(rect.x, rect.y, rect.width, rect.height)
 
-   private def invalidateRect(x: Int, y: Int, w: Int, h: Int): Unit =
-      peer.repaint(x, y, w, h)
-
-   private def invalidateAll(): Unit =
+   private def repaintFull(): Unit =
       repaint()
-
-
-   private def insertNewline(): Unit = {
-      val x = state.caret.position.col
-      val y = state.caret.position.line
-
-      pieceTable.insert("\n", new PiecePos(y, x))
-
-      state = state.copy(
-         scroll = state.scroll.mapY(clampScrollY),
-         caret = state.caret.moveTo(0, y + 1),
-         gutterWidth = updatedGutterWidth(),
-      )
-   }
-
-   private def deleteBackward(): Unit = {
-      val x = state.caret.position.col
-      val y = state.caret.position.line
-      val prevLineLengthBeforeMerge = if (y > 0) pieceTable.lines(y - 1).length() else 0
-
-      pieceTable.delete(new PiecePos(y, x))
-
-      if (x > 0) {
-         state = state.mapCaret(_.moveTo(x - 1, y))
-      } else if (y > 0) {
-         state = state.copy(
-            gutterWidth = updatedGutterWidth(),
-            scroll = state.scroll.mapY(clampScrollY),
-            caret = state.caret.moveTo(prevLineLengthBeforeMerge, y - 1),
-         )
-      }
-   }
-
-   private def deleteForward(): Unit = {
-      val x = state.caret.position.col
-      val y = state.caret.position.line
-      val lineLength = pieceTable.lines(y).length()
-      val lastLineIndex = pieceTable.lines.size - 1
-
-      if (x < lineLength) {
-         pieceTable.delete(new PiecePos(y, x + 1))
-      } else if (y < lastLineIndex) {
-         pieceTable.delete(new PiecePos(y + 1, 0))
-         state = state.copy(
-            scroll = state.scroll.mapY(clampScrollY),
-            gutterWidth = updatedGutterWidth(),
-         )
-      }
-   }

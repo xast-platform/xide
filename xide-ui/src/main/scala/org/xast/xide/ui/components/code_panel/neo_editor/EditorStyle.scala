@@ -1,10 +1,10 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
+import java.awt.Color
 import java.awt.FontMetrics
-import scala.swing.Color
 import org.xast.xide.ui.utils.XideStyle
 import scala.swing.Component
-import java.awt.Color
+import scala.swing.Color
 import scala.swing.Dimension
 
 case class EditorStyle(
@@ -17,7 +17,9 @@ case class EditorStyle(
 
 object EditorStyle:
 
-   final val FONT_SIZE: Float = 20f
+   final val gutterRightMargin: Int = 28
+   final val gutterPadding: Int = 32
+   final val fontSize: Float = 20f
 
    def initial(component: Component): EditorStyle =
       val xideStyle = XideStyle.getCurrent()
@@ -27,7 +29,7 @@ object EditorStyle:
          else 
             Color.BLACK
 
-      val font = xideStyle.codeFont.deriveFont(FONT_SIZE)
+      val font = xideStyle.codeFont.deriveFont(fontSize)
       val fontMetrics = component.peer.getFontMetrics(font)
       val bgColor = xideStyle.shiftAccent(0.3f)
 
