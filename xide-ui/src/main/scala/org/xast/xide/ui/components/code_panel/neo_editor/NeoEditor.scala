@@ -105,78 +105,6 @@ class NeoEditor(
       // case Effect.RepaintCanvas(RepaintAmount.Rect(rect)) =>
       //    repaintRect(rect)
 
-   // addKeyListener(new KeyAdapter():
-   //    override def keyPressed(e: KeyEvent): Unit = {
-   //       var textChanged = false
-   //       val shift = e.isShiftDown()
-   //       val ctrl = e.isControlDown()
-   //       val prevSelection = selectionLinesOrEmpty()
-
-   //       e.getKeyCode() match {
-   //          case KeyEvent.VK_DOWN =>
-   //             if shift then 
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretVertical(1)
-   //          case KeyEvent.VK_UP =>
-   //             if shift then 
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretVertical(-1)
-   //          case KeyEvent.VK_HOME =>
-   //             if shift then 
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretHome()
-   //          case KeyEvent.VK_END =>
-   //             if shift then 
-   //                beginSelectionIfNeeded() 
-   //             else 
-   //                state = state.mapSelection(_ => Selection.reset(state.caret))
-
-   //             moveCaretEnd()
-   //          case KeyEvent.VK_A =>
-   //             if (ctrl) {
-   //                state.selection = selection.copy(anchor = Position.zero)
-   //                val lastLine = pieceTable.lineCount - 1
-   //                state.caret.moveTo(pieceTable.lines(lastLine).length(), lastLine)
-   //             }
-   //          case KeyEvent.VK_C =>
-   //             if ctrl then 
-   //                copySelection()
-   //          case KeyEvent.VK_X =>
-   //             if ctrl && selection.nonEmpty then
-   //                copySelection()
-   //                deleteSelection()
-   //                textChanged = true
-   //          case KeyEvent.VK_V =>
-   //             if ctrl then
-   //                pasteClipboard()
-   //                textChanged = true
-   //          case KeyEvent.VK_SHIFT | KeyEvent.VK_CAPS_LOCK | KeyEvent.VK_F12 |
-   //             KeyEvent.VK_CONTROL | KeyEvent.VK_ALT => ()
-   //          case _ => ()
-   //       }
-
-   //       if textChanged then
-   //          textChangeListener()
-
-   //       ensureCaretVisible()
-
-   //       if (textChanged) {
-   //          repaintFull()
-   //       } else {
-   //          invalidateSelectionChange(prevSelection)
-   //       }
-   //    }
-   // )
-
    // private val mouseHandler: MouseAdapter = new MouseAdapter():
 
       // override def mousePressed(e: MouseEvent): Unit = {
@@ -300,50 +228,6 @@ class NeoEditor(
       PiecePos(line, ch)
    }
 
-   private def moveCaretVertical(deltaLine: Int): Unit = {
-      val targetLine = Math.max(0, Math.min(pieceTable.lineCount - 1, state.caret.position.line + deltaLine))
-      val column = 
-         if state.caret.checkDesiredColumn(col => col >= 0) then 
-            state.caret.desiredColumn.get
-         else 
-            state.caret.position.col
-
-      val clampedColumn = Math.min(column, lineLength(targetLine))
-      state = state.mapCaret(_.copy(
-         position = Position(clampedColumn, targetLine),
-         desiredColumn = Some(column),
-      ))
-   }
-
-   private def moveCaretHome(): Unit = {
-      state = state.mapCaret(_.copy(
-         position = Position(0, state.caret.position.line),
-         desiredColumn = None,
-      ))
-   }
-
-   private def moveCaretEnd(): Unit = {
-      state = state.mapCaret(_.copy(
-         position = Position(lineLength(state.caret.position.line), state.caret.position.line),
-         desiredColumn = None,
-      ))
-   }
-
-   private def getSelectedText(): String = {
-      val start = state.selection.anchor
-      val end = state.selection.active
-      if (start.line == end.line) {
-         return pieceTable.lines(start.line).substring(start.col, end.col)
-      }
-      var sb = new StringBuilder()
-      sb = sb.append(pieceTable.lines(start.line).substring(start.col)).append('\n')
-      for (line <- start.line + 1 until end.line) {
-         sb = sb.append(pieceTable.lines(line)).append('\n')
-      }
-      sb = sb.append(pieceTable.lines(end.line).substring(0, end.col))
-      sb.toString()
-   }
-
    // private def pasteClipboard(): Unit = {
    //    try {
    //       val text = Toolkit.getDefaultToolkit()
@@ -367,7 +251,7 @@ class NeoEditor(
    private def refreshMetrics(state: EditorState): EditorState =
       state.copy(
          scroll = state.scroll.mapY(EditorLogic.clampScrollY(style, pieceTable.lineCount)),
-         gutterWidth = updatedGutterWidth(),
+         gutterWidth = EditorLogic.updatedGutterWidth(style, pieceTable.lineCount),
       )
 
    override def font_=(f: Font): Unit = 
@@ -462,7 +346,7 @@ class NeoEditor(
          val label = String.valueOf(lineIndex + 1)
          val textWidth = style.fontMetrics.stringWidth(label)
          val y = lineHeight * lineIndex - state.scroll.y + style.fontMetrics.getAscent()
-         g2d.drawString(label, state.gutterWidth - textWidth - gutterRightMargin, y)
+         g2d.drawString(label, state.gutterWidth - textWidth - EditorStyle.gutterRightMargin, y)
       }
 
       g2d.setColor(style.xideStyle.shiftAccent(0.15f))

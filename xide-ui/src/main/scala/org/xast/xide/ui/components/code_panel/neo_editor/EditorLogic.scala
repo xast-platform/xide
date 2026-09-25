@@ -1,8 +1,7 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
 import scala.swing.Rectangle
-import org.xast.xide.ui.components.code_panel.neo_editor.EditorAction.MoveLeft
-import org.xast.xide.ui.components.code_panel.neo_editor.EditorAction.MoveRight
+import org.xast.xide.ui.components.code_panel.neo_editor.EditorAction.*
 
 // FIXME: move to utils after scala rewrite
 extension [A](value: A)
@@ -40,7 +39,7 @@ object EditorLogic:
       style: EditorStyle,
       action: EditorAction,
    ): Effectful[EditorState] = action match
-      case EditorAction.TypeChar(c) =>
+      case TypeChar(c) =>
          val newState = state
             |> when(_.selection.nonEmpty, deleteSelection(pieceTable))
             |> insertChar(c, pieceTable)
@@ -48,22 +47,25 @@ object EditorLogic:
 
          (newState, List(Effect.TextChanged))
 
-      case EditorAction.Backspace => 
+      case Backspace => 
          val newState = state
             |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteBackward(style, pieceTable))
+            |> ensureCaretVisible(style, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
 
-      case EditorAction.Delete =>
+      case Delete =>
          val newState = state
             |> whenElse(_.selection.nonEmpty, deleteSelection(pieceTable), deleteForward(style, pieceTable))
+            |> ensureCaretVisible(style, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
 
-      case EditorAction.Enter =>
+      case Enter =>
          val newState = state
             |> when(_.selection.nonEmpty, deleteSelection(pieceTable))
             |> insertNewline(pieceTable, style)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
 
          (newState, List(Effect.TextChanged))
       
@@ -71,6 +73,7 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretLeft(pieceTable)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
@@ -78,16 +81,136 @@ object EditorLogic:
          val newState = state
             |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
             |> moveCaretRight(pieceTable)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
+      case MoveDown(shift) =>
+         val newState = state
+            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
+            |> moveCaretVertical(pieceTable, 1)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
+
+         Effectful.pure(newState)
+
+      case MoveUp(shift) =>
+         val newState = state
+            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
+            |> moveCaretVertical(pieceTable, -1)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
+
+         Effectful.pure(newState)
+
+      case PressHome(shift) =>
+         val newState = state
+            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
+            |> moveCaretHome
+            |> ensureCaretVisible(style, pieceTable.lineCount)
+
+         Effectful.pure(newState)
+
+      case PressEnd(shift) =>
+         val newState = state
+            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
+            |> moveCaretEnd(pieceTable)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
+
+         Effectful.pure(newState)
+
+      case SelectAll =>
+         val newState = state
+            |> selectAllLines(pieceTable)
+            |> ensureCaretVisible(style, pieceTable.lineCount)
+
+         Effectful.pure(newState)
+
+      case Copy => 
+         val text = state 
+            |> getSelectedText(pieceTable)
+
+         (state, List(Effect.CopyToClipboard(text)))
+
+      case Cut =>
+         if state.selection.nonEmpty then
+            val text = state 
+               |> getSelectedText(pieceTable)
+            val newState = state
+               |> deleteSelection(pieceTable)
+               |> ensureCaretVisible(style, pieceTable.lineCount)
+
+            (
+               newState, 
+               List(Effect.TextChanged, Effect.CopyToClipboard(text)),
+            )
+         else
+            Effectful.pure(state)
+
+      case Paste => 
+         throw new RuntimeException("Paste is not modelled functionally yet")
+
       case _ => Effectful.pure(state)
+
+   def selectAllLines(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
+      val lastLine = pieceTable.lineCount - 1
+      state.copy(
+         selection = state.selection.mapAnchor(_ => Position.zero),
+         caret = state.caret.moveTo(pieceTable.lines(lastLine).length(), lastLine),
+      ) 
+
+   def getSelectedText(pieceTable: MutablePieceTable)(state: EditorState): String =
+      val start = state.selection.anchor
+      val end = state.selection.active
+
+      if start.line == end.line then
+         return pieceTable.lines(start.line).substring(start.col, end.col)
+
+      var sb = new StringBuilder()
+         .append(pieceTable.lines(start.line).substring(start.col))
+         .append('\n')
+
+      for (line <- start.line + 1 until end.line) {
+         sb = sb.append(pieceTable.lines(line)).append('\n')
+      }
+
+      sb.append(pieceTable.lines(end.line).substring(0, end.col))
+      sb.toString()
+
+
+   def moveCaretHome(state: EditorState): EditorState = 
+      state.mapCaret(_.copy(
+         position = Position(0, state.caret.position.line),
+         desiredColumn = None,
+      ))
+
+   def moveCaretEnd(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
+      state.mapCaret(_.copy(
+         position = Position(lineLength(pieceTable, state.caret.position.line), state.caret.position.line),
+         desiredColumn = None,
+      ))
+
+   def moveCaretVertical(
+      pieceTable: MutablePieceTable, 
+      deltaLine: Int,
+   )(state: EditorState): EditorState =
+      val targetLine = Math.max(0, Math.min(pieceTable.lineCount - 1, state.caret.position.line + deltaLine))
+      val column = 
+         if state.caret.checkDesiredColumn(col => col >= 0) then 
+            state.caret.desiredColumn.get
+         else 
+            state.caret.position.col
+
+      val clampedColumn = Math.min(column, lineLength(pieceTable, targetLine))
+
+      state.mapCaret(_.copy(
+         position = Position(clampedColumn, targetLine),
+         desiredColumn = Some(column),
+      ))
 
    def moveCaretRight(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
       val x = state.caret.position.col
       val y = state.caret.position.line
       val moved = 
-         if x < lineLength(y) then
+         if x < lineLength(pieceTable, y) then
             state.mapCaret(_.moveTo(x + 1, y))
          else if y < pieceTable.lineCount - 1 then
             state.mapCaret(_.moveTo(0, y + 1))
