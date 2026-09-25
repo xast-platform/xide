@@ -19,6 +19,7 @@ case class EditorStyleMetrics(
 
 object EditorStyleMetrics:
 
+   final val caretBlinkIntervalMs: Int = 500
    final val scrollbarMinThumb: Int = 20
    final val scrollLinesPerNotch: Int = 2
    final val scrollbarWidth: Int = 16

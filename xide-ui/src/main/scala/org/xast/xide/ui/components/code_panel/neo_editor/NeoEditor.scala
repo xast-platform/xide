@@ -1,7 +1,8 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
-import java.awt.{Cursor, Font, Graphics2D, Rectangle, RenderingHints, Toolkit, Color}
+import java.awt.{Cursor, Font, Graphics2D, Rectangle, Toolkit}
 import java.awt.datatransfer.{StringSelection, DataFlavor}
+import javax.swing.Timer
 
 import org.xast.xide.core.utils.Debug
 import org.xast.xide.ui.components.code_panel.neo_editor.*
@@ -23,6 +24,9 @@ class NeoEditor(
 
    private var state: EditorState = 
       EditorState.initial |> refreshMetrics
+
+   private val caretBlinkTimer: Timer = 
+      new Timer(EditorStyleMetrics.caretBlinkIntervalMs, _ => dispatch(EditorAction.BlinkCaret))
 
    focusable = true
    cursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR)
@@ -46,17 +50,21 @@ class NeoEditor(
          repaintFull()
    }
 
+   caretBlinkTimer.setInitialDelay(EditorStyleMetrics.caretBlinkIntervalMs)
+   caretBlinkTimer.start()
+
    def getContent: String =
       pieceTable.lines.mkString("\n")
 
    def dispatch(action: EditorAction): Unit =
       val prev = state
+      val prevLineCount = pieceTable.lineCount
       val (next, effects) = EditorLogic.update(pieceTable, prev, metrics, action)
       state = next
 
-      effects.foreach(runEffect)
+      repaintDiff(prev, next, prevLineCount, effects.contains(Effect.TextChanged))
 
-      repaintDiff(prev, next)
+      effects.foreach(runEffect)
 
    def runEffect(effect: Effect): Unit = effect match
       case Effect.CopyToClipboard(text: String) =>
@@ -88,12 +96,40 @@ class NeoEditor(
 
       case Effect.RequestFocus => requestFocus()
 
+      case Effect.RestartCaretBlink => caretBlinkTimer.restart()
+
    def repaintDiff(
       prev: EditorState,
       next: EditorState,
-   ): Unit =
-      // TODO: make diff for partial repaint
-      repaintFull()
+      prevLineCount: Int,
+      textChanged: Boolean,
+   ): Unit = EditorRepaint.diff(
+         prev, 
+         next, 
+         metrics, 
+         prevLineCount, 
+         pieceTable.lineCount, 
+         textChanged
+      ) match
+         case Some(RepaintAmount.All) => 
+            repaintFull()
+
+         case Some(RepaintAmount.Rects(rects)) => 
+            rects.foreach(repaintRect)
+
+         case _ => {}
+
+   def refreshMetrics(state: EditorState): EditorState =
+      state.copy(
+         scroll = state.scroll.mapY(EditorLogic.clampScrollY(metrics, pieceTable.lineCount)),
+         gutterWidth = EditorLogic.updatedGutterWidth(metrics, pieceTable.lineCount),
+      )
+
+   def repaintRect(rect: Rectangle): Unit =
+      peer.repaint(rect.x, rect.y, rect.width, rect.height)
+
+   def repaintFull(): Unit =
+      repaint()
 
    override def paint(g: Graphics2D): Unit = 
       super.paint(g)
@@ -105,43 +141,3 @@ class NeoEditor(
 
       metrics = metrics.copy(fontMetrics = peer.getFontMetrics(font))
       state = state |> refreshMetrics
-
-   def refreshMetrics(state: EditorState): EditorState =
-      state.copy(
-         scroll = state.scroll.mapY(EditorLogic.clampScrollY(metrics, pieceTable.lineCount)),
-         gutterWidth = EditorLogic.updatedGutterWidth(metrics, pieceTable.lineCount),
-      )
-
-   // TODO: diff
-
-   private def invalidateLines(fromLine: Int, toLine: Int): Unit = {
-      val lineHeight = metrics.fontMetrics.getHeight()
-      val top = fromLine * lineHeight - state.scroll.y
-      val bottom = (toLine + 1) * lineHeight - state.scroll.y
-      repaintRect(new Rectangle(0, top, Math.max(size.width, 1), bottom - top))
-   }
-
-   private def selectionLinesOrEmpty(): Option[(Int, Int)] =
-      if state.selection.nonEmpty then 
-         Some((state.selection.anchor.line, state.selection.active.line)) 
-      else 
-         None
-
-   private def invalidateSelectionChange(before: Option[(Int, Int)]): Unit = {
-      val after = selectionLinesOrEmpty()
-      if before == after then
-         return
-            
-      (before, after) match {
-         case (None, None) => ()
-         case (Some((a, b)), None) => invalidateLines(a, b)
-         case (None, Some((a, b))) => invalidateLines(a, b)
-         case (Some((a1, b1)), Some((a2, b2))) => invalidateLines(Math.min(a1, a2), Math.max(b1, b2))
-      }
-   }
-
-   private def repaintRect(rect: Rectangle): Unit =
-      peer.repaint(rect.x, rect.y, rect.width, rect.height)
-
-   private def repaintFull(): Unit =
-      repaint()

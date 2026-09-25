@@ -3,6 +3,7 @@ package org.xast.xide.ui.components.code_panel.neo_editor
 import java.awt.RenderingHints
 import scala.swing.Graphics2D
 import java.awt.Color
+import java.awt.Rectangle
 
 object EditorRenderer:
 
@@ -15,19 +16,22 @@ object EditorRenderer:
       val width = metrics.size.width
       val height = metrics.size.height
       val lineHeight = metrics.fontMetrics.getHeight()
+      val clip = Option(g.getClipBounds()).getOrElse(new Rectangle(0, 0, width, height))
 
-      g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+      g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
       g.setColor(metrics.bgColor)
-      g.fillRect(0, 0, width, height)
+      g.fillRect(clip.x, clip.y, clip.width, clip.height)
 
-      val firstVisibleLine = Math.max(0, state.scroll.y / lineHeight)
-      val visibleLineSlots = height / lineHeight + 2
-      val lastVisibleLine = Math.min(pieceTable.lineCount, firstVisibleLine + visibleLineSlots)
+      val firstVisibleLine = Math.max(0, (state.scroll.y + clip.y) / lineHeight)
+      val lastVisibleLine = Math.min(
+         pieceTable.lineCount, 
+         (state.scroll.y + clip.y + clip.height) / lineHeight + 1,
+      )
       val contentX = state.gutterWidth
       val contentWidth = Math.max(0, width - state.gutterWidth - EditorStyleMetrics.scrollbarWidth)
 
       val contentG = g.create(contentX, 0, contentWidth, height).asInstanceOf[Graphics2D]
-      contentG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+      contentG.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
       contentG.setFont(metrics.font)
       contentG.translate(0, -state.scroll.y)
 

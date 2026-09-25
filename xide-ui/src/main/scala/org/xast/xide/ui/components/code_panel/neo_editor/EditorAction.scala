@@ -27,3 +27,4 @@ enum EditorAction:
    case MouseReleased(x: Int, y: Int)
 
    case Scroll(lines: Int)
+   case BlinkCaret

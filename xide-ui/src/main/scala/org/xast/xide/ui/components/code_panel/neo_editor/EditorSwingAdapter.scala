@@ -22,6 +22,8 @@ object EditorSwingAdapter:
          hasModifier(e.modifiers, Key.Modifier.Shift),
       )
 
+      case e: MouseMoved => A.MouseMoved(e.point.x, e.point.y)
+
       case e: MouseDragged => A.MouseDragged(e.point.x, e.point.y)
       
       case e: MouseReleased => A.MouseReleased(e.point.x, e.point.y)

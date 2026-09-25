@@ -1,6 +1,5 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
-import scala.swing.Rectangle
 import org.xast.xide.ui.components.code_panel.neo_editor.EditorAction.*
 
 // FIXME: move to utils after scala rewrite
@@ -28,14 +27,28 @@ enum Effect:
    case TextChanged
    case UpdateEditorStatus(currentChar: Int, currentLine: Int)
    case RequestFocus
-
-enum RepaintAmount:
-   case All
-   case Rect(rect: Rectangle)
+   case RestartCaretBlink
 
 object EditorLogic:
 
    def update(
+      pieceTable: MutablePieceTable,
+      state: EditorState,
+      metrics: EditorStyleMetrics,
+      action: EditorAction,
+   ): Effectful[EditorState] =
+      val (next, effects) = updateAction(pieceTable, state, metrics, action)
+
+      if next.caret.position != state.caret.position then
+         val pos = next.caret.position
+         (
+            next.mapCaretVisible(_ => true), 
+            effects ++ List(Effect.RestartCaretBlink, Effect.UpdateEditorStatus(pos.col + 1, pos.line + 1)),
+         )
+      else
+         (next, effects)
+
+   private def updateAction(
       pieceTable: MutablePieceTable,
       state: EditorState,
       metrics: EditorStyleMetrics,
@@ -73,48 +86,42 @@ object EditorLogic:
       
       case MoveLeft(shift) => 
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretLeft(pieceTable)
+            |> moveCaret(shift, moveCaretLeft(pieceTable))
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case MoveRight(shift) => 
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretRight(pieceTable)
+            |> moveCaret(shift, moveCaretRight(pieceTable))
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case MoveDown(shift) =>
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretVertical(pieceTable, 1)
+            |> moveCaret(shift, moveCaretVertical(pieceTable, 1))
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case MoveUp(shift) =>
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretVertical(pieceTable, -1)
+            |> moveCaret(shift, moveCaretVertical(pieceTable, -1))
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case PressHome(shift) =>
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretHome
+            |> moveCaret(shift, moveCaretHome)
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
 
       case PressEnd(shift) =>
          val newState = state
-            |> whenElse(_ => shift, beginSelectionIfNeeded, resetSelection)
-            |> moveCaretEnd(pieceTable)
+            |> moveCaret(shift, moveCaretEnd(pieceTable))
             |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
          Effectful.pure(newState)
@@ -167,27 +174,14 @@ object EditorLogic:
             val clicked = state |> pointToPiecePos(pieceTable, metrics, x, y)
 
             val newState = 
-               if shift then state 
-                  |> beginSelectionIfNeeded
-                  |> (s => s.mapCaret(_.moveTo(clicked.line, clicked.ch)))
-                  |> ensureCaretVisible(metrics, pieceTable.lineCount)
-               else state
-                  |> resetSelection
-                  |> (s => 
-                        s.copy(
-                           selection = s.selection.mapAnchor(_ => Position(clicked.line, clicked.ch)),
-                           caret = s.caret.moveTo(clicked.line, clicked.ch),
-                           draggingSelection = true,
-                        )
-                     )
+               state
+                  |> moveCaret(shift, _.mapCaret(_.moveTo(clicked.line, clicked.ch).mapDesiredColumn(_ => None)))
+                  |> (_.copy(draggingSelection = true))
                   |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
             (
                newState,
-               List(
-                  Effect.RequestFocus,
-                  Effect.UpdateEditorStatus(clicked.ch + 1, clicked.line + 1)
-               )
+               List(Effect.RequestFocus)
             )
 
       case MouseReleased(x: Int, y: Int) =>
@@ -225,10 +219,11 @@ object EditorLogic:
          else if state.draggingSelection then
             val pos = state |> pointToPiecePos(pieceTable, metrics, x, y)
             val newState = state
-               |> (s => s.copy(caret = s.caret.moveTo(pos.ch, pos.line)))
+               |> (_.mapCaret(_.moveTo(pos.line, pos.ch)))
+               |> selectToCaret
                |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
-            (newState, List(Effect.UpdateEditorStatus(pos.ch + 1, pos.line + 1)))
+            Effectful.pure(newState)
 
          else
             Effectful.pure(state)
@@ -247,6 +242,8 @@ object EditorLogic:
       case Undo => Effectful.pure(state)
 
       case Redo => Effectful.pure(state)
+
+      case BlinkCaret => Effectful.pure(state.mapCaretVisible(!_))
 
    def beginScrollbarDrag(
       metrics: EditorStyleMetrics,
@@ -328,8 +325,8 @@ object EditorLogic:
    def selectAllLines(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
       val lastLine = pieceTable.lineCount - 1
       state.copy(
-         selection = state.selection.mapAnchor(_ => Position.zero),
-         caret = state.caret.moveTo(lastLine, pieceTable.lines(lastLine).length),
+         selection = Selection(Position.zero, Position(lastLine, lineLength(pieceTable, lastLine))),
+         caret = state.caret.moveTo(lastLine, lineLength(pieceTable, lastLine)),
       ) 
 
    def getSelectedText(pieceTable: MutablePieceTable)(state: EditorState): String =
@@ -412,6 +409,18 @@ object EditorLogic:
          pieceTable.lines(line).length
       else 
          0
+
+   def moveCaret(shift: Boolean, move: EditorState => EditorState)(state: EditorState): EditorState =
+      if shift then state
+         |> beginSelectionIfNeeded
+         |> move
+         |> selectToCaret
+      else state
+         |> move
+         |> resetSelection
+
+   def selectToCaret(state: EditorState): EditorState =
+      state.mapSelection(_.mapActive(_ => state.caret.position))
 
    def beginSelectionIfNeeded(state: EditorState): EditorState =
       state |> when(_.selection.isEmpty, resetSelection)
