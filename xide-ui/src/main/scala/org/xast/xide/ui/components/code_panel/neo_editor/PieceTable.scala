@@ -275,7 +275,7 @@ class MutablePieceTable(val content: String):
    private def removeLastCharOfPiece(piece: Piece): Unit =
       piece.length -= 1
 
-      if (piece.length == 0) then
+      if piece.length == 0 then
          removePiece(piece)
 
    private def removePiece(piece: Piece): Unit =

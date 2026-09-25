@@ -17,7 +17,7 @@ class ConsoleRedirectStream(
 
         text.foreach:
             case '\n' =>
-                view.addLine(buffer.toString, error)
+                val _ = view.addLine(buffer.toString, error)
                 buffer.setLength(0)
                 
             case '\r' => // ignore

@@ -6,9 +6,11 @@ import org.xast.xide.ui.utils.XideStyle
 import scala.swing.Component
 import scala.swing.Color
 import scala.swing.Dimension
+import scala.swing.Font
 
 case class EditorStyleMetrics(
    fontMetrics: FontMetrics,
+   font: Font,
    fontColor: Color,
    bgColor: Color,
    xideStyle: XideStyle,
@@ -20,8 +22,10 @@ object EditorStyleMetrics:
    final val scrollbarMinThumb: Int = 20
    final val scrollLinesPerNotch: Int = 2
    final val scrollbarWidth: Int = 16
+   final val caretWidth: Int = 2
    final val gutterRightMargin: Int = 28
    final val gutterPadding: Int = 32
+   final val defaultGutterWidth: Int = 40
    final val fontSize: Float = 20f
 
    def initial(component: Component): EditorStyleMetrics =
@@ -37,9 +41,11 @@ object EditorStyleMetrics:
       val bgColor = xideStyle.shiftAccent(0.3f)
 
       component.peer.setFont(font)
+      component.background = bgColor
 
       EditorStyleMetrics(
          fontMetrics,
+         font,
          fontColor,
          bgColor,
          xideStyle,

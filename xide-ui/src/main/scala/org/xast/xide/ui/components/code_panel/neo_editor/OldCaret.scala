@@ -1,14 +1,9 @@
 package org.xast.xide.ui.components.code_panel.neo_editor
 
-import java.awt.Color
-import java.awt.Graphics
-
 import javax.swing.Timer
 
 import org.xast.xide.core.event.EventBus
-import org.xast.xide.core.event.ThemeChangedEvent
 import org.xast.xide.ui.components.RepaintRegion
-import org.xast.xide.ui.utils.XideStyle
 
 object OldCaret:
    private val BLINK_INTERVAL_MS: Int = 500
@@ -22,12 +17,6 @@ class OldCaret(val eventBus: EventBus, val repaintRegion: RepaintRegion):
    private var y: Int = 0
    private var height: Int = 20
    private var visible: Boolean = true
-
-   private var caretColor: Color = scala.compiletime.uninitialized
-   private val style: XideStyle = XideStyle.getCurrent()
-
-   applyTheme()
-   eventBus.subscribe(classOf[ThemeChangedEvent], _ => applyTheme())
 
    private val timer: Timer = new Timer(
       BLINK_INTERVAL_MS,
@@ -52,10 +41,6 @@ class OldCaret(val eventBus: EventBus, val repaintRegion: RepaintRegion):
    def setHeight(height: Int): Unit = this.height = height
 
    def isVisible(): Boolean = visible
-
-   private def applyTheme(): Unit = {
-      caretColor = if (style.isDarkTheme()) Color.WHITE else Color.BLACK
-   }
 
    def moveTo(nextX: Int, nextY: Int): Unit = {
       val previousX = x
@@ -86,13 +71,6 @@ class OldCaret(val eventBus: EventBus, val repaintRegion: RepaintRegion):
          timer.restart()
       } else {
          timer.stop()
-      }
-   }
-
-   def paintComponent(g: Graphics): Unit = {
-      if (visible) {
-         g.setColor(caretColor)
-         g.fillRect(x * deltaX, y * deltaY, 2, height)
       }
    }
 

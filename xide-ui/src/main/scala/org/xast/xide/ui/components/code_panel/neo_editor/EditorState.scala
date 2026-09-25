@@ -6,9 +6,11 @@ case class EditorState(
    caret: Caret,
    selection: Selection,
    scroll: Scroll,
+   draggingSelection: Boolean = false,
    draggingScrollbar: Boolean = false,
    hoveringScrollbar: Boolean = false,
-   gutterWidth: Int = EditorState.defaultGutterWidth,
+   caretVisible: Boolean = true,
+   gutterWidth: Int = EditorStyleMetrics.defaultGutterWidth,
 ):
 
    def mapCaret(f: Caret => Caret): EditorState = 
@@ -26,12 +28,13 @@ case class EditorState(
    def mapHoveringScrollbar(f: Boolean => Boolean): EditorState = 
       copy(hoveringScrollbar = f(hoveringScrollbar))
 
+   def mapCaretVisible(f: Boolean => Boolean): EditorState = 
+      copy(caretVisible = f(caretVisible))
+
    def mapGutterWidth(f: Int => Int): EditorState = 
       copy(gutterWidth = f(gutterWidth))
 
 object EditorState:
-
-   final val defaultGutterWidth: Int = 40
 
    def initial: EditorState = EditorState(
       caret      = Caret.zero,

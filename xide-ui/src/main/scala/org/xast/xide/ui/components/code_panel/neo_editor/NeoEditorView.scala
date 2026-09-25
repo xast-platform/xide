@@ -20,24 +20,21 @@ class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelVie
 
    private var content = ""
 
-   if (file.exists() && file.canRead()) {
-      try {
+   if file.exists() && file.canRead() then
+      try
          content = Files.readString(file.toPath())
-      } catch {
+      catch
          case e: IOException =>
             Debug.error("Cannot read file `" + file.getName() + "`: " + e.getMessage())
-      }
-   }
 
    editorStatus = new NeoEditorStatus()
    add(editorStatus, BorderLayout.SOUTH)
 
    neoEditor = new NeoEditor(
-      eventBus,
       content,
       editorStatus,
       () => eventBus.publish(new FileSaveRequestedEvent(file, false)),
    )
-   add(neoEditor.component, BorderLayout.CENTER)
+   add(neoEditor.peer, BorderLayout.CENTER)
 
    override def model(): FileModel = new TextFileModel(neoEditor.getContent)

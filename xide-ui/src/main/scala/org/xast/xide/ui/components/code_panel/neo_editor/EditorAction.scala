@@ -22,6 +22,7 @@ enum EditorAction:
    case Redo
 
    case MousePressed(x: Int, y: Int, shift: Boolean)
+   case MouseMoved(x: Int, y: Int)
    case MouseDragged(x: Int, y: Int)
    case MouseReleased(x: Int, y: Int)
 

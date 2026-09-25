@@ -169,17 +169,17 @@ object EditorLogic:
             val newState = 
                if shift then state 
                   |> beginSelectionIfNeeded
-                  |> (s => s.mapCaret(_.moveTo(clicked.ch, clicked.line)))
+                  |> (s => s.mapCaret(_.moveTo(clicked.line, clicked.ch)))
                   |> ensureCaretVisible(metrics, pieceTable.lineCount)
                else state
                   |> resetSelection
                   |> (s => 
                         s.copy(
-                           selection = s.selection.mapAnchor(_ => Position(clicked.ch, clicked.line)),
-                           caret = s.caret.moveTo(clicked.ch, clicked.line),
+                           selection = s.selection.mapAnchor(_ => Position(clicked.line, clicked.ch)),
+                           caret = s.caret.moveTo(clicked.line, clicked.ch),
+                           draggingSelection = true,
                         )
                      )
-                  // draggingSelection = true
                   |> ensureCaretVisible(metrics, pieceTable.lineCount)
 
             (
@@ -190,7 +190,63 @@ object EditorLogic:
                )
             )
 
-      case _ => Effectful.pure(state)
+      case MouseReleased(x: Int, y: Int) =>
+         Effectful.pure(state.copy(
+            draggingScrollbar = false,
+            draggingSelection = false,
+         ))
+
+      case MouseMoved(x: Int, y: Int) =>
+         val nowHovering = scrollbarVisible(metrics, pieceTable.lineCount) && isOverScrollbar(metrics, x)
+         val newState = state
+            |> when(_.hoveringScrollbar != nowHovering, s => s.mapHoveringScrollbar(_ => nowHovering))
+
+         Effectful.pure(newState)
+
+      case MouseDragged(x: Int, y: Int) =>
+         if state.draggingScrollbar then
+            val lineHeight = metrics.fontMetrics.getHeight()
+            val contentHeight = pieceTable.lineCount * lineHeight
+            val trackHeight = metrics.size.height
+            val maxScrollY = Math.max(0, contentHeight - trackHeight)
+
+            if maxScrollY != 0 then
+               val thumbHeight = EditorStyleMetrics.computeThumbHeight(trackHeight, contentHeight)
+               val maxThumbY = Math.max(1, trackHeight - thumbHeight)
+               val deltaY = y - state.scroll.dragStartY
+               val deltaScroll = (deltaY.toLong * maxScrollY / maxThumbY).toInt
+               val newState = state
+                  |> setScrollY(metrics, pieceTable.lineCount, state.scroll.dragStartScrollY + deltaScroll)
+
+               Effectful.pure(newState)
+            else
+               Effectful.pure(state)
+
+         else if state.draggingSelection then
+            val pos = state |> pointToPiecePos(pieceTable, metrics, x, y)
+            val newState = state
+               |> (s => s.copy(caret = s.caret.moveTo(pos.ch, pos.line)))
+               |> ensureCaretVisible(metrics, pieceTable.lineCount)
+
+            (newState, List(Effect.UpdateEditorStatus(pos.ch + 1, pos.line + 1)))
+
+         else
+            Effectful.pure(state)
+
+      case Scroll(lines) =>
+         val lineHeight = metrics.fontMetrics.getHeight()
+         val newState = state |> setScrollY(
+            metrics,
+            pieceTable.lineCount,
+            state.scroll.y + lines * lineHeight * EditorStyleMetrics.scrollLinesPerNotch,
+         )
+         
+         Effectful.pure(newState)
+
+      // TODO: undo, redo
+      case Undo => Effectful.pure(state)
+
+      case Redo => Effectful.pure(state)
 
    def beginScrollbarDrag(
       metrics: EditorStyleMetrics,
@@ -211,7 +267,7 @@ object EditorLogic:
             (desiredThumbY.toLong * maxScrollY / maxThumbY).toInt
       )
 
-      state.copy(
+      scrolled.copy(
          draggingScrollbar = true,
          scroll = state.scroll.copy(
             dragStartY = clickY, 
@@ -246,7 +302,11 @@ object EditorLogic:
 
       val line = Math.max(0, Math.min(adjustedY / lineHeight, pieceTable.lineCount - 1))
       val rawCh = Math.max(0, (adjustedX + 5) / charWidth)
-      val lineLength = if (line < pieceTable.lines.size) pieceTable.lines(line).length() else 0
+      val lineLength = 
+         if line < pieceTable.lineCount then 
+            pieceTable.lines(line).length 
+         else 
+            0
       val ch = Math.max(0, Math.min(rawCh, lineLength))
 
       PiecePos(line, ch)
@@ -269,12 +329,12 @@ object EditorLogic:
       val lastLine = pieceTable.lineCount - 1
       state.copy(
          selection = state.selection.mapAnchor(_ => Position.zero),
-         caret = state.caret.moveTo(pieceTable.lines(lastLine).length(), lastLine),
+         caret = state.caret.moveTo(lastLine, pieceTable.lines(lastLine).length),
       ) 
 
    def getSelectedText(pieceTable: MutablePieceTable)(state: EditorState): String =
-      val start = state.selection.anchor
-      val end = state.selection.active
+      val start = state.selection.start
+      val end = state.selection.end
 
       if start.line == end.line then
          return pieceTable.lines(start.line).substring(start.col, end.col)
@@ -293,13 +353,13 @@ object EditorLogic:
 
    def moveCaretHome(state: EditorState): EditorState = 
       state.mapCaret(_.copy(
-         position = Position(0, state.caret.position.line),
+         position = Position(state.caret.position.line, 0),
          desiredColumn = None,
       ))
 
    def moveCaretEnd(pieceTable: MutablePieceTable)(state: EditorState): EditorState = 
       state.mapCaret(_.copy(
-         position = Position(lineLength(pieceTable, state.caret.position.line), state.caret.position.line),
+         position = Position(state.caret.position.line, lineLength(pieceTable, state.caret.position.line)),
          desiredColumn = None,
       ))
 
@@ -317,7 +377,7 @@ object EditorLogic:
       val clampedColumn = Math.min(column, lineLength(pieceTable, targetLine))
 
       state.mapCaret(_.copy(
-         position = Position(clampedColumn, targetLine),
+         position = Position(targetLine, clampedColumn),
          desiredColumn = Some(column),
       ))
 
@@ -326,9 +386,9 @@ object EditorLogic:
       val y = state.caret.position.line
       val moved = 
          if x < lineLength(pieceTable, y) then
-            state.mapCaret(_.moveTo(x + 1, y))
+            state.mapCaret(_.moveTo(y, x + 1))
          else if y < pieceTable.lineCount - 1 then
-            state.mapCaret(_.moveTo(0, y + 1))
+            state.mapCaret(_.moveTo(y + 1, 0))
          else 
             state
 
@@ -339,17 +399,17 @@ object EditorLogic:
       val y = state.caret.position.line
       val moved = 
          if x > 0 then
-            state.mapCaret(_.moveTo(x - 1, y))
+            state.mapCaret(_.moveTo(y, x - 1))
          else if y > 0 then
-            state.mapCaret(_.moveTo(lineLength(pieceTable, y - 1), y - 1))
+            state.mapCaret(_.moveTo(y - 1, lineLength(pieceTable, y - 1)))
          else
             state
 
       moved.mapCaret(_.mapDesiredColumn(_ => None))
 
    def lineLength(pieceTable: MutablePieceTable, line: Int): Int =
-      if line >= 0 && line < pieceTable.lines.size then 
-         pieceTable.lines(line).length() 
+      if line >= 0 && line < pieceTable.lineCount then 
+         pieceTable.lines(line).length
       else 
          0
 
@@ -370,7 +430,7 @@ object EditorLogic:
 
       state.copy(
          scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
-         caret = state.caret.moveTo(0, y + 1),
+         caret = state.caret.moveTo(y + 1, 0),
          gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
       )
 
@@ -380,8 +440,8 @@ object EditorLogic:
    )(state: EditorState): EditorState =
       val x = state.caret.position.col
       val y = state.caret.position.line
-      val lineLength = pieceTable.lines(y).length()
-      val lastLineIndex = pieceTable.lines.size - 1
+      val lineLength = pieceTable.lines(y).length
+      val lastLineIndex = pieceTable.lineCount - 1
 
       if x < lineLength then
          pieceTable.delete(new PiecePos(y, x + 1))
@@ -403,19 +463,19 @@ object EditorLogic:
       val y = state.caret.position.line
       val prevLineLengthBeforeMerge = 
          if y > 0 then 
-            pieceTable.lines(y - 1).length() 
+            pieceTable.lines(y - 1).length 
          else 
             0
 
       pieceTable.delete(new PiecePos(y, x))
 
       if x > 0 then
-         state.mapCaret(_.moveTo(x - 1, y))
+         state.mapCaret(_.moveTo(y, x - 1))
       else if y > 0 then
          state.copy(
             gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
             scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
-            caret = state.caret.moveTo(prevLineLengthBeforeMerge, y - 1),
+            caret = state.caret.moveTo(y - 1, prevLineLengthBeforeMerge),
          )
       else
          state
@@ -424,17 +484,19 @@ object EditorLogic:
       if state.selection.isEmpty then 
          state
       else
-         val start = state.selection.anchor
-         val end = state.selection.active
+         val start = state.selection.start
+         val end = state.selection.end
 
          pieceTable.deleteRange(
-            new PiecePos(start.line, start.col), 
+            new PiecePos(start.line, start.col),
             new PiecePos(end.line, end.col)
          )
 
+         val newCaret = state.caret.moveTo(start.line, start.col)
+
          state.copy(
-            caret = state.caret.moveTo(start.col, start.line),
-            selection = Selection.reset(state.caret),
+            caret = newCaret,
+            selection = Selection.reset(newCaret),
          )
 
    def insertChar(
@@ -445,7 +507,7 @@ object EditorLogic:
       val y = state.caret.position.line
 
       pieceTable.insert(String.valueOf(ch), new PiecePos(y, x))
-      state.mapCaret(_.moveTo(x + 1, y))
+      state.mapCaret(_.moveTo(y, x + 1))
 
    def ensureCaretVisible(
       metrics: EditorStyleMetrics,
@@ -454,7 +516,6 @@ object EditorLogic:
       val lineHeight = metrics.fontMetrics.getHeight()
       val caretTop = state.caret.position.line * lineHeight
       val caretBottom = caretTop + lineHeight
-      val previousScrollY = state.scroll.y
 
       val scrolled = 
          if caretTop < state.scroll.y then
@@ -466,15 +527,12 @@ object EditorLogic:
 
       scrolled.mapScroll(_.mapY(clampScrollY(metrics, lineCount)))
 
-   def clampScrollY(
-      metrics: EditorStyleMetrics, 
-      lineCount: Int,
-   ): Int => Int =
+   def clampScrollY(metrics: EditorStyleMetrics, lineCount: Int)(y: Int): Int =
       val lineHeight = metrics.fontMetrics.getHeight()
       val maxScrollY = Math.max(0, lineCount * lineHeight - metrics.size.height)
       
-      y => Math.max(0, Math.min(y, maxScrollY))
+      Math.max(0, Math.min(y, maxScrollY))
 
    def updatedGutterWidth(metrics: EditorStyleMetrics, lineCount: Int): Int =
-      val digits = Math.max(2, String.valueOf(lineCount).length())
+      val digits = Math.max(2, String.valueOf(lineCount).length)
       EditorStyleMetrics.gutterPadding + digits * metrics.fontMetrics.charWidth('0') + EditorStyleMetrics.gutterRightMargin
