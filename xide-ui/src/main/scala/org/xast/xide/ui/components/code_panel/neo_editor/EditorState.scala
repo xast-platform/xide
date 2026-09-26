@@ -2,6 +2,27 @@ package org.xast.xide.ui.components.code_panel.neo_editor
 
 import scala.math.Ordering.Implicits.infixOrderingOps
 
+case class EditorModel(
+   state: EditorState,
+   history: EditorHistory,
+)
+
+case class EditorHistory(
+   undo: List[HistoryEntry] = Nil,
+   redo: List[HistoryEntry] = Nil,
+)
+
+object EditorHistory:
+   final val maxDepth: Int = 1000
+   final val groupTimeoutMs: Long = 1000
+
+case class HistoryEntry(
+   edits: Vector[Edit],
+   before: EditorState,
+   after: EditorState,
+   time: Long,
+)
+
 case class EditorState(
    caret: Caret,
    selection: Selection,

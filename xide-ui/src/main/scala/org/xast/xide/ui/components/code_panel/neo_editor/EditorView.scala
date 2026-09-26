@@ -12,9 +12,10 @@ import org.xast.xide.core.plugin.file.TextFileModel
 import org.xast.xide.core.plugin.ui.CodePanelView
 import org.xast.xide.core.utils.Debug
 
-class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelView:
-   private var neoEditor: NeoEditor = scala.compiletime.uninitialized
-   private var editorStatus: NeoEditorStatus = scala.compiletime.uninitialized
+class EditorView(val eventBus: EventBus, val file: File) extends CodePanelView:
+   
+   private var editor: EditorComponent = scala.compiletime.uninitialized
+   private var editorStatus: EditorStatus = scala.compiletime.uninitialized
 
    setLayout(new BorderLayout())
 
@@ -27,14 +28,14 @@ class NeoEditorView(val eventBus: EventBus, val file: File) extends CodePanelVie
          case e: IOException =>
             Debug.error("Cannot read file `" + file.getName() + "`: " + e.getMessage())
 
-   editorStatus = new NeoEditorStatus()
-   add(editorStatus, BorderLayout.SOUTH)
+   editorStatus = new EditorStatus()
+   add(editorStatus.peer, BorderLayout.SOUTH)
 
-   neoEditor = new NeoEditor(
+   editor = new EditorComponent(
       content,
       editorStatus,
       () => eventBus.publish(new FileSaveRequestedEvent(file, false)),
    )
-   add(neoEditor.peer, BorderLayout.CENTER)
+   add(editor.peer, BorderLayout.CENTER)
 
-   override def model(): FileModel = new TextFileModel(neoEditor.getContent)
+   override def model(): FileModel = new TextFileModel(editor.getContent)

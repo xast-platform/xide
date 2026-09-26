@@ -10,23 +10,58 @@ class MutablePieceTable(val content: String):
    private var addBuffer: String        = ""
    private var pieceHead: Option[Piece] = Some(new Piece(0, content.length, Source.Original, None))
    private val lineCache: ArrayBuffer[String] = computeLines()
-
+   private val pending: ArrayBuffer[Edit] = ArrayBuffer[Edit]()
+   private var recording = true
+   
    /**
      * Current line-by-line view of the document. Kept in sync incrementally
      * by insert/delete 
      */
    def lines: ArrayBuffer[String] = lineCache
 
+   def drainEdits(): Vector[Edit] =
+      val edits = pending.toVector; 
+      pending.clear(); 
+      edits
+
+   def withoutRecording[A](f: => A): A =
+      recording = false
+
+      try f 
+      finally recording = true
+
+   def addedText(start: Int, length: Int): String =
+      addBuffer.substring(start, start + length)
+
+   def textBetween(start: PiecePos, end: PiecePos): String =
+      if start.line == end.line then
+         lineCache(start.line).substring(start.ch, end.ch)
+      else
+         val sb = new StringBuilder()
+            .append(lineCache(start.line).substring(start.ch))
+            .append('\n')
+
+         for line <- start.line + 1 until end.line do
+            sb.append(lineCache(line)).append('\n')
+
+         sb.append(lineCache(end.line).substring(0, end.ch)).toString
+
    def insert(content: String, pos: PiecePos): Unit =
+      if content.isEmpty then
+         return
+
       val findResult = findPieceByLine(pos)
 
-      if findResult.piece.isEmpty then
-         if pieceHead.isEmpty then
-            addBuffer += content
-            pieceHead = Some(new Piece(0, content.length(), Source.Add, None))
-            patchLinesForInsert(content, pos)
-            return
+      if findResult.piece.isEmpty && pieceHead.isDefined then
+         return
 
+      if recording then
+         pending += Edit.Insert(Position(pos.line, pos.ch), addBuffer.length, content.length)
+
+      if findResult.piece.isEmpty then
+         pieceHead = Some(new Piece(addBuffer.length, content.length(), Source.Add, None))
+         addBuffer += content
+         patchLinesForInsert(content, pos)
          return
 
       val piece = findResult.piece.get
@@ -57,24 +92,32 @@ class MutablePieceTable(val content: String):
       patchLinesForInsert(content, pos)
 
    def delete(pos: PiecePos): Unit =
+      if pos.line == 0 && pos.ch == 0 then
+         return
+
+      val (from, text) =
+         if pos.ch > 0 then 
+            (Position(pos.line, pos.ch - 1), lineCache(pos.line)(pos.ch - 1).toString)
+         else 
+            (Position(pos.line - 1, lineCache(pos.line - 1).length), "\n")
+
       val findResult = findPieceByLine(pos)
       val offset = findResult.offset
       val maybePiece = findResult.piece
       val maybePrevious = findResult.previous
 
-      if maybePiece.isEmpty then
+      if maybePiece.isEmpty || (offset == 0 && maybePrevious.isEmpty) then
          return
+
+      if recording then 
+         pending += Edit.Delete(from, text)
 
       val piece = maybePiece.get
 
-      if offset == 0 && maybePrevious.isDefined then
-         val previous = maybePrevious.get
-         removeLastCharOfPiece(previous)
+      if offset == 0 then
+         removeLastCharOfPiece(maybePrevious.get)
          patchLinesForDelete(pos)
          return
-      else
-         if offset == 0 then
-            return
 
       if piece.length == 1 && offset == 1 then
          removePiece(piece)
@@ -104,11 +147,17 @@ class MutablePieceTable(val content: String):
       patchLinesForDelete(pos)
 
    def deleteRange(start: PiecePos, end: PiecePos): Unit = 
+      if start == end then
+         return
+
       val startResult = findPieceByLine(start)
       val endResult = findPieceByLine(end)
 
       if startResult.piece.isEmpty || endResult.piece.isEmpty then
          return
+
+      if recording then 
+         pending += Edit.Delete(Position(start.line, start.ch), textBetween(start, end))
 
       val startPiece = startResult.piece.get
       val endPiece = endResult.piece.get
@@ -209,12 +258,14 @@ class MutablePieceTable(val content: String):
 
    private def patchLinesForInsert(content: String, pos: PiecePos): Unit =
       val line = lineCache(pos.line)
+      val parts = content.split("\n", -1)
 
-      if content == "\n" then
-         lineCache.update(pos.line, line.substring(0, pos.ch))
-         lineCache.insert(pos.line + 1, line.substring(pos.ch))
-      else
+      if parts.length == 1 then
          lineCache.update(pos.line, line.substring(0, pos.ch) + content + line.substring(pos.ch))
+      else
+         lineCache.update(pos.line, line.substring(0, pos.ch) + parts.head)
+         lineCache.insertAll(pos.line + 1, parts.slice(1, parts.length - 1))
+         lineCache.insert(pos.line + parts.length - 1, parts.last + line.substring(pos.ch))
 
    private def patchLinesForDelete(pos: PiecePos): Unit =
       if pos.ch > 0 then
@@ -295,6 +346,10 @@ class MutablePieceTable(val content: String):
 
          maybePrevious = Some(head)
          maybeHead = head.next
+
+enum Edit:
+   case Insert(at: Position, addStart: Int, length: Int)
+   case Delete(from: Position, text: String)
 
 class Piece(
    var offset: Int,

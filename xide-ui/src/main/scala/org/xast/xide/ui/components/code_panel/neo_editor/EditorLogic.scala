@@ -28,27 +28,55 @@ enum Effect:
    case UpdateEditorStatus(currentChar: Int, currentLine: Int)
    case RequestFocus
    case RestartCaretBlink
+   case RepaintAll
 
 object EditorLogic:
 
    def update(
       pieceTable: MutablePieceTable,
-      state: EditorState,
+      model: EditorModel,
       metrics: EditorStyleMetrics,
       action: EditorAction,
-   ): Effectful[EditorState] =
-      val (next, effects) = updateAction(pieceTable, state, metrics, action)
+      now: Long,
+   ): Effectful[EditorModel] =
+      val (next, effects) = action match
+         case Undo => undo(pieceTable, model, metrics)
+         case Redo => redo(pieceTable, model, metrics)
+         case _ => updateAndRecord(pieceTable, model, metrics, action, now)
 
-      if next.caret.position != state.caret.position then
-         val pos = next.caret.position
+      if next.state.caret.position != model.state.caret.position then
+         val pos = next.state.caret.position
          (
-            next.mapCaretVisible(_ => true), 
+            next.copy(state = next.state.mapCaretVisible(_ => true)),
             effects ++ List(Effect.RestartCaretBlink, Effect.UpdateEditorStatus(pos.col + 1, pos.line + 1)),
          )
       else
          (next, effects)
 
-   private def updateAction(
+   private def updateAndRecord(
+      pieceTable: MutablePieceTable,
+      model: EditorModel,
+      metrics: EditorStyleMetrics,
+      action: EditorAction,
+      now: Long,
+   ): Effectful[EditorModel] =
+      val prev = model.state
+      val (next, effects) = updateAction(pieceTable, prev, metrics, action)
+
+      val edits = pieceTable.drainEdits()
+
+      val history = 
+         if edits.isEmpty then 
+            model.history
+         else 
+            EditorHistory(
+               undo = pushHistory(pieceTable, model.history.undo, HistoryEntry(edits, prev, next, now)),
+               redo = Nil,
+            )
+
+      (EditorModel(next, history), effects)
+
+   def updateAction(
       pieceTable: MutablePieceTable,
       state: EditorState,
       metrics: EditorStyleMetrics,
@@ -238,12 +266,116 @@ object EditorLogic:
          
          Effectful.pure(newState)
 
-      // TODO: undo, redo
-      case Undo => Effectful.pure(state)
-
-      case Redo => Effectful.pure(state)
+      case Undo | Redo => Effectful.pure(state)
 
       case BlinkCaret => Effectful.pure(state.mapCaretVisible(!_))
+
+   def undo(
+      pieceTable: MutablePieceTable,
+      model: EditorModel,
+      metrics: EditorStyleMetrics,
+   ): Effectful[EditorModel] = model.history.undo match
+      case entry :: rest =>
+         pieceTable.withoutRecording(entry.edits.reverseIterator.foreach(applyInverse(pieceTable)))
+
+         val state = model.state |> restoreFrom(entry.before, pieceTable, metrics)
+         val history = EditorHistory(rest, entry :: model.history.redo)
+
+         (EditorModel(state, history), List(Effect.TextChanged, Effect.RepaintAll))
+
+      case Nil => Effectful.pure(model)
+
+   def redo(
+      pieceTable: MutablePieceTable,
+      model: EditorModel,
+      metrics: EditorStyleMetrics,
+   ): Effectful[EditorModel] = model.history.redo match
+      case entry :: rest =>
+         pieceTable.withoutRecording(entry.edits.foreach(applyForward(pieceTable)))
+
+         val state = model.state |> restoreFrom(entry.after, pieceTable, metrics)
+         val history = EditorHistory(entry :: model.history.undo, rest)
+
+         (EditorModel(state, history), List(Effect.TextChanged, Effect.RepaintAll))
+
+      case Nil => Effectful.pure(model)
+
+   def restoreFrom(
+      snapshot: EditorState,
+      pieceTable: MutablePieceTable,
+      metrics: EditorStyleMetrics,
+   )(state: EditorState): EditorState =
+      state.copy(
+         caret = snapshot.caret,
+         selection = snapshot.selection,
+         scroll = state.scroll.mapY(clampScrollY(metrics, pieceTable.lineCount)),
+         gutterWidth = updatedGutterWidth(metrics, pieceTable.lineCount),
+      ) |> ensureCaretVisible(metrics, pieceTable.lineCount)
+
+   def applyForward(pieceTable: MutablePieceTable)(edit: Edit): Unit = edit match
+      case Edit.Insert(at, addStart, length) =>
+         pieceTable.insert(pieceTable.addedText(addStart, length), toPiecePos(at))
+
+      case Edit.Delete(from, text) =>
+         pieceTable.deleteRange(toPiecePos(from), toPiecePos(endOf(from, text)))
+
+   def applyInverse(pieceTable: MutablePieceTable)(edit: Edit): Unit = edit match
+      case Edit.Insert(at, addStart, length) =>
+         val text = pieceTable.addedText(addStart, length)
+         pieceTable.deleteRange(toPiecePos(at), toPiecePos(endOf(at, text)))
+
+      case Edit.Delete(from, text) =>
+         pieceTable.insert(text, toPiecePos(from))
+
+   def pushHistory(
+      pieceTable: MutablePieceTable,
+      stack: List[HistoryEntry],
+      entry: HistoryEntry,
+   ): List[HistoryEntry] = stack match
+      case last :: rest if entry.time - last.time < EditorHistory.groupTimeoutMs && entry.edits.size == 1 =>
+         mergeEdits(pieceTable, last.edits.last, entry.edits.head) match
+            case Some(merged) =>
+               last.copy(edits = last.edits.init :+ merged, after = entry.after, time = entry.time) :: rest
+            case None =>
+               (entry :: stack).take(EditorHistory.maxDepth)
+
+      case _ => 
+         (entry :: stack).take(EditorHistory.maxDepth)
+
+   def mergeEdits(pieceTable: MutablePieceTable, prev: Edit, next: Edit): Option[Edit] = 
+      (prev, next) match
+         case (Edit.Insert(at1, start1, len1), Edit.Insert(at2, start2, len2)) =>
+            val prevText = pieceTable.addedText(start1, len1)
+            val nextText = pieceTable.addedText(start2, len2)
+            val contiguous = start2 == start1 + len1 && at2 == endOf(at1, prevText)
+            val wordBoundary = prevText.last.isWhitespace && !nextText.head.isWhitespace
+
+            if contiguous && !nextText.contains('\n') && !prevText.contains('\n') && !wordBoundary then
+               Some(Edit.Insert(at1, start1, len1 + len2))
+            else 
+               None
+
+         case (Edit.Delete(from1, text1), Edit.Delete(from2, text2)) 
+            if !text1.contains('\n') && !text2.contains('\n') =>
+            if endOf(from2, text2) == from1 then
+               Some(Edit.Delete(from2, text2 + text1))
+            else if from2 == from1 then
+               Some(Edit.Delete(from1, text1 + text2))
+            else 
+               None
+
+         case _ => None
+
+   def endOf(start: Position, text: String): Position =
+      val newlines = text.count(_ == '\n')
+
+      if newlines == 0 then 
+         Position(start.line, start.col + text.length)
+      else 
+         Position(start.line + newlines, text.length - text.lastIndexOf('\n') - 1)
+
+   def toPiecePos(position: Position): PiecePos =
+      PiecePos(position.line, position.col)
 
    def beginScrollbarDrag(
       metrics: EditorStyleMetrics,

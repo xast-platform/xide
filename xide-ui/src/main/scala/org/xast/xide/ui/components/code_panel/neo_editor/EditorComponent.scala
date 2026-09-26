@@ -10,9 +10,9 @@ import org.xast.xide.ui.components.code_panel.neo_editor.*
 import scala.swing.Component
 import scala.swing.event.UIElementResized
    
-class NeoEditor(
+class EditorComponent(
    val content: String,
-   val editorStatus: NeoEditorStatus,
+   val editorStatus: EditorStatus,
    val onTextChange: () => Unit,
 ) extends Component:
 
@@ -22,8 +22,10 @@ class NeoEditor(
    private var metrics: EditorStyleMetrics = 
       EditorStyleMetrics.initial(this)
 
-   private var state: EditorState = 
-      EditorState.initial |> refreshMetrics
+   private var model: EditorModel = EditorModel(
+      state = EditorState.initial |> refreshMetrics,
+      history = EditorHistory(),
+   )
 
    private val caretBlinkTimer: Timer = 
       new Timer(EditorStyleMetrics.caretBlinkIntervalMs, _ => dispatch(EditorAction.BlinkCaret))
@@ -45,7 +47,7 @@ class NeoEditor(
    // Component-wise reactions
    reactions += {
       case UIElementResized(_) =>
-         state = state.mapScroll(_.mapY(EditorLogic.clampScrollY(metrics, pieceTable.lineCount)))
+         model = model.copy(state = model.state.mapScroll(_.mapY(EditorLogic.clampScrollY(metrics, pieceTable.lineCount))))
          metrics = metrics.copy(size = this.size)
          repaintFull()
    }
@@ -57,12 +59,15 @@ class NeoEditor(
       pieceTable.lines.mkString("\n")
 
    def dispatch(action: EditorAction): Unit =
-      val prev = state
+      val prev = model
       val prevLineCount = pieceTable.lineCount
-      val (next, effects) = EditorLogic.update(pieceTable, prev, metrics, action)
-      state = next
+      val (next, effects) = EditorLogic.update(pieceTable, prev, metrics, action, System.currentTimeMillis())
+      model = next
 
-      repaintDiff(prev, next, prevLineCount, effects.contains(Effect.TextChanged))
+      if effects.contains(Effect.RepaintAll) then
+         repaintFull()
+      else
+         repaintDiff(prev.state, next.state, prevLineCount, effects.contains(Effect.TextChanged))
 
       effects.foreach(runEffect)
 
@@ -97,6 +102,8 @@ class NeoEditor(
       case Effect.RequestFocus => requestFocus()
 
       case Effect.RestartCaretBlink => caretBlinkTimer.restart()
+
+      case Effect.RepaintAll => () // handled in dispatch
 
    def repaintDiff(
       prev: EditorState,
@@ -134,10 +141,10 @@ class NeoEditor(
    override def paint(g: Graphics2D): Unit = 
       super.paint(g)
 
-      EditorRenderer.paint(g, pieceTable, state, metrics)
+      EditorRenderer.paint(g, pieceTable, model.state, metrics)
 
    override def font_=(f: Font): Unit = 
       peer.setFont(f)
 
       metrics = metrics.copy(fontMetrics = peer.getFontMetrics(font))
-      state = state |> refreshMetrics
+      model = model.copy(state = model.state |> refreshMetrics)
